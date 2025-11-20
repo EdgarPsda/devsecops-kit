@@ -1,4 +1,4 @@
-module github.com/edgarpsda/devsecops-kit
+module github.com/EdgarPsda/devsecops-kit
 
 go 1.24.2
 

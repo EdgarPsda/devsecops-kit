@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/edgarpsda/devsecops-kit/cli/cmd"
+	"github.com/EdgarPsda/devsecops-kit/cli/cmd"
 )
 
 func main() {
