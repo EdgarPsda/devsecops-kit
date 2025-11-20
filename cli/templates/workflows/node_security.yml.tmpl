@@ -1,0 +1,40 @@
+name: Security Scan
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm install --prefer-offline
+
+      {{- if .Tools.Semgrep }}
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/ci"
+      {{- end }}
+
+      {{- if .Tools.Gitleaks }}
+      - name: Run Gitleaks
+        uses: zricethezav/gitleaks-action@v2
+      {{- end }}
+
+      {{- if .Tools.Trivy }}
+      - name: Run Trivy FS scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+      {{- end }}
