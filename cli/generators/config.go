@@ -5,7 +5,7 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/EdgarPsda/devsecops-kit/cli/templates"
+	"github.com/edgarpsda/devsecops-kit/cli/templates"
 )
 
 func GenerateSecurityConfig(cfg *InitConfig) error {

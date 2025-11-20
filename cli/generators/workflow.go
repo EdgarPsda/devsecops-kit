@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/EdgarPsda/devsecops-kit/cli/templates"
+	"github.com/edgarpsda/devsecops-kit/cli/templates"
 )
 
 func GenerateGithubActions(cfg *InitConfig) error {

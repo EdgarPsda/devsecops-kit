@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/EdgarPsda/devsecops-kit/cli/detectors"
-	"github.com/EdgarPsda/devsecops-kit/cli/generators"
+	"github.com/edgarpsda/devsecops-kit/cli/detectors"
+	"github.com/edgarpsda/devsecops-kit/cli/generators"
 	"github.com/spf13/cobra"
 )
 

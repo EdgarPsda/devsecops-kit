@@ -1,7 +1,7 @@
 // cli/generators/types.go
 package generators
 
-import "github.com/EdgarPsda/devsecops-kit/cli/detectors"
+import "github.com/edgarpsda/devsecops-kit/cli/detectors"
 
 type ToolsConfig struct {
 	Semgrep  bool
