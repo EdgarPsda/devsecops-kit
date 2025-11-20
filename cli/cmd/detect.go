@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/EdgarPsda/devsecops-kit/cli/detectors"
+	"github.com/edgarpsda/devsecops-kit/cli/detectors"
 	"github.com/spf13/cobra"
 )
 
