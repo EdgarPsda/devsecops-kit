@@ -32,21 +32,53 @@ jobs:
         uses: returntocorp/semgrep-action@v1
         with:
           config: "p/ci"
-          generateSarif: true
-          output: artifacts/security/semgrep-results.sarif
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         with:
-          args: detect --source . --report-format=json --report-path=artifacts/security/gitleaks-report.json
+          report-format: json
+          report-path: artifacts/security/gitleaks-report.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run Trivy FS Scan
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
-          format: "json"
+          format: json
           output: artifacts/security/trivy-fs.json
-          severity: "HIGH,CRITICAL"
+          severity: HIGH,CRITICAL
+
+      - name: Generate security summary (JSON)
+        if: always()
+        run: |
+          echo "Generating security summary..."
+          mkdir -p artifacts/security
+
+          # Gitleaks: count total findings (supports array or {findings:[...]})
+          if [ -f artifacts/security/gitleaks-report.json ]; then
+            GITLEAKS_COUNT=$(jq 'if type=="array" then length else (.findings | length // 0) end' artifacts/security/gitleaks-report.json)
+          else
+            GITLEAKS_COUNT=0
+          fi
+
+          # Trivy: group vulnerabilities by severity (CRITICAL/HIGH/etc.)
+          if [ -f artifacts/security/trivy-fs.json ]; then
+            TRIVY_SUMMARY=$(jq '
+              ( [ .Results[].Vulnerabilities[]? | .Severity ]
+                | group_by(.)
+                | map({ (.[0]): length })
+                | add
+              ) // {}' artifacts/security/trivy-fs.json)
+          else
+            TRIVY_SUMMARY='{}'
+          fi
+
+          jq -n \
+            --argjson gitleaks_count "$GITLEAKS_COUNT" \
+            --argjson trivy "$TRIVY_SUMMARY" \
+            '{ gitleaks: { total: $gitleaks_count }, trivy: $trivy }' \
+            > artifacts/security/summary.json
+
+          echo "Summary written to artifacts/security/summary.json"
 
       - name: Upload security artifacts
         if: always()
