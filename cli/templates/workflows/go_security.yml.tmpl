@@ -5,11 +5,21 @@ on:
     branches: ["main"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare artifacts directory
+        run: mkdir -p artifacts/security
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -24,17 +34,30 @@ jobs:
         uses: returntocorp/semgrep-action@v1
         with:
           config: "p/ci"
+          generateSarif: true
+          output: artifacts/security/semgrep-results.sarif
       {{- end }}
 
       {{- if .Tools.Gitleaks }}
       - name: Run Gitleaks
-        uses: zricethezav/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --report-format=json --report-path=artifacts/security/gitleaks-report.json
       {{- end }}
 
       {{- if .Tools.Trivy }}
-      - name: Trivy FS Scan
+      - name: Run Trivy FS Scan
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
-          severity: HIGH,CRITICAL
+          format: "json"
+          output: artifacts/security/trivy-fs.json
+          severity: "HIGH,CRITICAL"
       {{- end }}
+
+      - name: Upload security artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: artifacts/security/
