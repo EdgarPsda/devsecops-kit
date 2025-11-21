@@ -22,3 +22,10 @@ jobs:
         uses: returntocorp/semgrep-action@v1
         with:
           config: "p/ci"
+      - name: Run Gitleaks
+        uses: zricethezav/gitleaks-action@v2
+      - name: Trivy FS Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL

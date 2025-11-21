@@ -2,9 +2,9 @@
 
 language: "golang"
 framework: ""
-severity_threshold: "critical"
+severity_threshold: "high"
 
 tools:
   semgrep: true
-  gitleaks: false
-  trivy: false
+  gitleaks: true
+  trivy: true
