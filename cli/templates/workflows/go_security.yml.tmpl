@@ -43,6 +43,8 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         with:
           args: detect --source . --report-format=json --report-path=artifacts/security/gitleaks-report.json
+        env:
+          GITHUB_TOKEN: ${{"{{"}} secrets.GITHUB_TOKEN {{ "}}" }}
       {{- end }}
 
       {{- if .Tools.Trivy }}

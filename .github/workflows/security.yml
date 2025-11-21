@@ -32,10 +32,14 @@ jobs:
         uses: returntocorp/semgrep-action@v1
         with:
           config: "p/ci"
+          generateSarif: true
+          output: artifacts/security/semgrep-results.sarif
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         with:
           args: detect --source . --report-format=json --report-path=artifacts/security/gitleaks-report.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Run Trivy FS Scan
         uses: aquasecurity/trivy-action@master
         with:
