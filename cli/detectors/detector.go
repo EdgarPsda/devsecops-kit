@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ProjectInfo contains detected project information
@@ -14,6 +15,8 @@ type ProjectInfo struct {
 	PackageFile  string   // e.g. "package.json", "go.mod"
 	RootDir      string   // project root directory
 	Dependencies []string // coarse list of deps (for future heuristics)
+	HasDocker    bool     // true if Dockerfile detected
+	DockerImages []string // list of Docker image names found
 }
 
 // Detector interface for language/framework detection
@@ -51,7 +54,69 @@ func DetectProject(dir string) (*ProjectInfo, error) {
 		return nil, errors.New("no supported project type detected")
 	}
 
+	// Check for Docker (can coexist with any language)
+	detectDocker(dir, bestMatch)
+
 	return bestMatch, nil
+}
+
+// detectDocker checks for Dockerfile and docker-compose.yml, updates ProjectInfo in-place
+func detectDocker(dir string, info *ProjectInfo) {
+	// Check for Dockerfile
+	dockerfilePath := filepath.Join(dir, "Dockerfile")
+	if fileExists(dockerfilePath) {
+		info.HasDocker = true
+
+		// Try to extract image names from Dockerfile
+		images := extractDockerImages(dockerfilePath)
+		info.DockerImages = images
+	}
+
+	// Also check for docker-compose.yml (indicates Docker usage)
+	composePaths := []string{
+		filepath.Join(dir, "docker-compose.yml"),
+		filepath.Join(dir, "docker-compose.yaml"),
+	}
+
+	for _, composePath := range composePaths {
+		if fileExists(composePath) {
+			info.HasDocker = true
+			break
+		}
+	}
+}
+
+// extractDockerImages parses Dockerfile to find image references
+// Returns a simple heuristic: finds lines like "FROM image:tag"
+func extractDockerImages(dockerfilePath string) []string {
+	data, err := os.ReadFile(dockerfilePath)
+	if err != nil {
+		return nil
+	}
+
+	var images []string
+	content := string(data)
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// Look for "FROM <image>"
+		if strings.HasPrefix(strings.ToUpper(line), "FROM ") {
+			parts := strings.Fields(line) // Split by whitespace
+			if len(parts) >= 2 {
+				image := parts[1]
+				// Skip build stages (FROM ... AS stage_name)
+				// Check if next word is "AS"
+				if len(parts) >= 3 && strings.ToUpper(parts[2]) == "AS" {
+					continue // This is a build stage, skip it
+				}
+				images = append(images, image)
+			}
+		}
+	}
+
+	return images
 }
 
 // fileExists checks if a file exists
