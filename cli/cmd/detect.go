@@ -32,6 +32,18 @@ var detectCmd = &cobra.Command{
 		fmt.Printf("  RootDir:    %s\n", info.RootDir)
 		fmt.Printf("  Dependencies detected: %d\n", len(info.Dependencies))
 
+		if info.HasDocker {
+			fmt.Println("  Docker:     ✓ Detected")
+			if len(info.DockerImages) > 0 {
+				fmt.Println("  Docker Images:")
+				for _, img := range info.DockerImages {
+					fmt.Printf("    - %s\n", img)
+				}
+			}
+		} else {
+			fmt.Println("  Docker:     Not detected")
+		}
+
 		return nil
 	},
 }

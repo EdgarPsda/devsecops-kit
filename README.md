@@ -5,13 +5,14 @@ DevSecOps Kit detects your project (Node.js or Go), generates a hardened GitHub 
 
 Designed for small teams, freelancers, and agencies who need practical DevSecOps without complexity.
 
-## 🚀 Key Features (v0.2.0)
+## 🚀 Key Features (v0.3.0)
 
 ### 🔍 Automatic Project Detection
 Works out-of-the-box with:
 
 - Node.js (`package.json`)
 - Go (`go.mod`)
+- **Docker** (Dockerfile detection) 🆕
 
 ### ⚙️ Auto-Generated Security Pipeline
 Generates a ready-to-run GitHub Actions workflow including:
@@ -19,9 +20,40 @@ Generates a ready-to-run GitHub Actions workflow including:
 - Semgrep (SAST)
 - Gitleaks (Secrets detection)
 - Trivy (FS + dependency scanning)
-- Hardenered permissions
+- **Trivy Image Scanning** (when Dockerfile present) 🆕
+- Hardened permissions
 - Artifact uploads
 - Timeout protections
+
+### 🎯 Config-Driven Fail Gates 🆕
+Define thresholds that automatically fail CI builds:
+
+```yaml
+fail_on:
+  gitleaks: 0           # Fail if ANY secrets detected
+  semgrep: 10           # Fail if 10+ findings
+  trivy_critical: 0     # Fail if ANY critical vulnerabilities
+  trivy_high: 5         # Fail if 5+ high severity vulnerabilities
+```
+
+### 🚫 Exclude Paths 🆕
+Reduce noise by excluding directories from scans:
+
+```yaml
+exclude_paths:
+  - "vendor/"
+  - "node_modules/"
+  - "test/"
+  - "*.test.js"
+```
+
+### 💬 Inline "Fix-it" PR Comments 🆕
+Get detailed, actionable feedback directly on your code:
+
+- File/line-specific comments for security issues
+- Remediation guidance for each finding
+- References to security best practices
+- Automatic comment placement on changed files only
 
 ### 🧙 Interactive Wizard
 ```bash
@@ -52,29 +84,39 @@ Each workflow produces:
 ```
 artifacts/security/
   gitleaks-report.json
+  semgrep-report.json
   trivy-fs.json
-  summary.json
+  trivy-image.json      # When Dockerfile present
+  summary.json          # v0.3.0 schema
 ```
 
 The `summary.json` contains:
 
 - Total secrets leaks
 - Vulnerability counts by severity
-- Ready for dashboards or fail-gates in future releases
+- **PASS/FAIL status based on thresholds** 🆕
+- **Blocking issue count** 🆕
 
-### 💬 Automated PR Security Comment
-Every pull request receives a concise, updated comment summarizing:
+### 💬 Enhanced PR Security Comments 🆕
+Every pull request receives:
 
-- Secrets found
-- Vulnerabilities
-- PASS/FAIL recommendation
+1. **Summary Comment** (updated, not duplicated):
+   - Secrets found
+   - FS & Image vulnerabilities
+   - **Clear PASS/FAIL status**
+   - **Blocking issue count**
 
-### 📄 Expanded Configuration (v0.2.0)
+2. **Inline Fix-it Comments**:
+   - Specific file/line comments
+   - Remediation guidance
+   - Security references
+
+### 📄 Configuration (v0.3.0)
 
 Generated automatically as:
 
 ```yaml
-version: "0.2.0"
+version: "0.3.0"
 
 language: "golang"
 framework: ""
@@ -86,14 +128,31 @@ tools:
   trivy: true
   gitleaks: true
 
-exclude_paths: []
-fail_on: {}
+# Exclude paths from scanning (reduces noise)
+exclude_paths:
+  - "vendor/"
+  - "node_modules/"
+  - "test/"
+
+# Fail gates - CI fails if thresholds exceeded
+fail_on:
+  gitleaks: 0           # Fail if ANY secrets detected
+  semgrep: 10           # Fail if 10+ Semgrep findings
+  trivy_critical: 0     # Fail if ANY critical vulnerabilities
+  trivy_high: 5         # Fail if 5+ high severity vulnerabilities
+  trivy_medium: -1      # Disabled (set to number to enable)
+  trivy_low: -1         # Disabled
 
 notifications:
   pr_comment: true
   slack: false
   email: false
 ```
+
+**How to customize:**
+1. Run `devsecops init` to generate the config
+2. Edit `security-config.yml` to adjust thresholds and exclusions
+3. Commit changes - they take effect on next CI run
 
 ## 🛠️ Installation
 
@@ -176,12 +235,12 @@ security-reports/
 
 ## 🧭 Roadmap
 
-| Version | Features |
-|---------|----------|
-| **0.3.0** | Fail-on logic, exclude-paths integration, Semgrep JSON support |
-| **0.4.0** | Local CLI scans (`devsecops scan`) |
-| **0.5.0** | Expanded detection: Python, Java, Dockerfiles |
-| **1.0.0** | Full onboarding experience + multi-CI support |
+| Version | Features | Status |
+|---------|----------|--------|
+| **0.3.0** | Config-driven fail gates, exclude paths, Docker detection, image scanning, inline PR comments | ✅ **Released** |
+| **0.4.0** | Local CLI scans (`devsecops scan`), local report generation | 🚧 In Progress |
+| **0.5.0** | Python/Java detection, expanded framework support | 📋 Planned |
+| **1.0.0** | Full onboarding UX, multi-CI support (GitLab, Jenkins) | 📋 Planned |
 
 ## 🤝 Contributing
 

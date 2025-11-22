@@ -13,6 +13,96 @@ and this project adheres (loosely) to [Semantic Versioning](https://semver.org/s
 
 ---
 
+## [0.3.0] - 2025-01-XX
+
+### Added
+
+- **Config-driven fail gates** 🎯:
+  - New `fail_on` configuration in `security-config.yml`
+  - Define per-tool thresholds that fail CI builds:
+    - `gitleaks`: Fail on secret count threshold (default: 0)
+    - `semgrep`: Fail on finding count threshold (default: 10)
+    - `trivy_critical`, `trivy_high`, `trivy_medium`, `trivy_low`: Fail on vulnerability counts
+  - Set threshold to `-1` to disable specific gate
+  - Workflow now exits with error code 1 when thresholds exceeded
+  - Summary status shows `PASS` or `FAIL` based on thresholds
+
+- **Exclude paths support** 🚫:
+  - New `exclude_paths` configuration to reduce scanning noise
+  - Applies to all enabled scanners:
+    - Semgrep: Uses `--exclude` flags
+    - Gitleaks: Generates `.gitleaks.toml` with path allowlist
+    - Trivy: Uses `skip-dirs` parameter
+  - Common exclusions: `vendor/`, `node_modules/`, `test/`, etc.
+
+- **Dockerfile detection** 🐳:
+  - Automatic detection of Dockerfile and docker-compose.yml
+  - Added `HasDocker` and `DockerImages` fields to `ProjectInfo`
+  - `devsecops detect` now shows Docker status
+  - Parses Dockerfile to extract base images
+
+- **Trivy image scanning** 📦:
+  - Automatic Docker image scanning when Dockerfile detected
+  - Builds temporary image (`devsecops-scan-temp:latest`) for scanning
+  - Generates `trivy-image.json` artifact
+  - Image vulnerabilities included in summary and PR comments
+  - Same fail gates apply to both FS and image scans
+
+- **Inline "Fix-it" PR comments** 💬:
+  - Detailed, file/line-specific security comments on PRs
+  - Semgrep findings:
+    - Shows severity, rule ID, and message
+    - Includes fix suggestions when available
+    - Links to security references
+  - Gitleaks findings:
+    - Highlights secret location
+    - Provides remediation steps
+    - Warns about credential rotation
+  - Only comments on changed files in the PR
+  - Limited to 10 Semgrep + 5 Gitleaks comments per run (prevents spam)
+
+- **Enhanced PR summary comments**:
+  - Now shows clear **PASS/FAIL status** based on fail gates
+  - Displays blocking issue count
+  - Separate sections for Trivy FS and Trivy Image results
+  - Idempotent updates (no duplicate comments)
+
+- **Structured summary.json v0.3.0**:
+  - New fields:
+    - `status`: "PASS" or "FAIL"
+    - `blocking_count`: Number of issues exceeding thresholds
+    - `trivy_image`: Image scan results (when Dockerfile present)
+  - Ready for dashboard integrations and trend analysis
+
+### Changed
+
+- **Updated `security-config.yml` schema to v0.3.0**:
+  - Added comprehensive `fail_on` configuration with defaults
+  - Added `exclude_paths` with commented examples
+  - Updated version to `"0.3.0"`
+
+- **Workflow templates enhanced**:
+  - Added Python step to extract config (requires PyYAML)
+  - Config extraction happens early in workflow
+  - Fail gate check runs at end (after artifacts upload)
+  - Both Go and Node.js templates updated identically
+
+- **README updated**:
+  - Highlighted v0.3.0 features with 🆕 badges
+  - Added fail gates and exclude paths examples
+  - Updated configuration section with full v0.3.0 schema
+  - Added customization instructions
+  - Updated roadmap with release status
+
+### Fixed
+
+- **PyYAML installation** added to config extraction step (fixes `ModuleNotFoundError`)
+- **Dockerfile image extraction** now uses proper string parsing (not filepath.SplitList)
+- **Build stage detection** in Dockerfiles (skips `FROM ... AS stage` lines)
+- **Gitleaks JSON report generation** switched from `gitleaks-action` to direct CLI execution (enables fix-it comments to read findings)
+
+---
+
 ## [0.2.0] - 2025-11-21
 
 ### Added
