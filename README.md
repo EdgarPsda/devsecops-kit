@@ -1,321 +1,217 @@
-# DevSecOps Kit
+# 📘 DevSecOps Kit
 
-Opinionated CLI to bootstrap a complete security pipeline for small teams.
+Modern, opinionated CLI to bootstrap a complete security pipeline for small teams — instantly.
+DevSecOps Kit detects your project (Node.js or Go), generates a hardened GitHub Actions workflow, and produces a centralized security configuration that evolves with your needs.
 
-DevSecOps Kit automatically detects your project type and generates a ready-to-use GitHub Actions security workflow along with a centralized `security-config.yml`.
+Designed for small teams, freelancers, and agencies who need practical DevSecOps without complexity.
 
-It’s designed for small teams, freelancers, and agencies that need practical DevSecOps pipelines — without spending days wiring scanners manually.
-
----
-
-## ✨ Features (v0.1.0)
+## 🚀 Key Features (v0.2.0)
 
 ### 🔍 Automatic Project Detection
-- Node.js (via `package.json`)
-- Go (via `go.mod`)
+Works out-of-the-box with:
 
-### ⚙️ Security Workflow Generation
-Creates a tailored GitHub Actions workflow:
-- Node.js workflow
-- Go workflow
+- Node.js (`package.json`)
+- Go (`go.mod`)
 
-### 🛡️ Security Tools Integration
-Enable tools individually via CLI flags:
-- **Semgrep** — static code analysis  
-- **Gitleaks** — secrets scanning  
-- **Trivy** — dependency & container scanning  
+### ⚙️ Auto-Generated Security Pipeline
+Generates a ready-to-run GitHub Actions workflow including:
 
-### 🎚️ Configurable Severity Threshold
-Controls what fails the pipeline:  
-`low | medium | high | critical`
+- Semgrep (SAST)
+- Gitleaks (Secrets detection)
+- Trivy (FS + dependency scanning)
+- Hardenered permissions
+- Artifact uploads
+- Timeout protections
 
-### 📄 Centralized Security Configuration
-Automatically creates a `security-config.yml` with:
-- Language / framework  
-- Enabled tools  
-- Severity threshold  
-- Metadata (CLI version, timestamp)
+### 🧙 Interactive Wizard
+```bash
+devsecops init --wizard
+```
 
-### 📦 Single Self-Contained Binary
-- No external templates needed  
-- All assets embedded via `go:embed`
+A guided setup for new users:
 
----
+- Select tools
+- Choose severity gates
+- Preview settings before generating
+
+### 🩺 Environment Diagnose Command
+```bash
+devsecops diagnose
+```
+
+Checks system readiness:
+
+- Installed scanners
+- Docker availability
+- Project detection
+- CI/CD compatibility
+
+### 📦 Artifacts + JSON Summary (CI)
+Each workflow produces:
+
+```
+artifacts/security/
+  gitleaks-report.json
+  trivy-fs.json
+  summary.json
+```
+
+The `summary.json` contains:
+
+- Total secrets leaks
+- Vulnerability counts by severity
+- Ready for dashboards or fail-gates in future releases
+
+### 💬 Automated PR Security Comment
+Every pull request receives a concise, updated comment summarizing:
+
+- Secrets found
+- Vulnerabilities
+- PASS/FAIL recommendation
+
+### 📄 Expanded Configuration (v0.2.0)
+
+Generated automatically as:
+
+```yaml
+version: "0.2.0"
+
+language: "golang"
+framework: ""
+
+severity_threshold: "high"
+
+tools:
+  semgrep: true
+  trivy: true
+  gitleaks: true
+
+exclude_paths: []
+fail_on: {}
+
+notifications:
+  pr_comment: true
+  slack: false
+  email: false
+```
 
 ## 🛠️ Installation
 
-You can install DevSecOps Kit in two ways:
-
-### **1. Install via Go (recommended)**
-
+### Option A — Install via Go
 ```bash
-go install github.com/edgarposada/devsecops-kit@latest
+go install github.com/edgarpsda/devsecops-kit/cmd/devsecops@latest
 ```
 
-This installs the binary globally into `$GOPATH/bin/`.
-
-Check that it works:
+Verify:
 
 ```bash
 devsecops version
 ```
 
-### **2. Build from source**
-
+### Option B — Build from source
 ```bash
-git clone https://github.com/edgarposada/devsecops-kit.git
+git clone https://github.com/edgarpsda/devsecops-kit.git
 cd devsecops-kit
-
-# Build binary (VERSION defaults to 0.1.0)
 make build
-
-# Check version
-./devsecops-kit version
+./devsecops version
 ```
 
----
+## 🚦 Quick Start
 
-## 🚀 Usage
+### 1. Run the wizard (recommended)
+```bash
+devsecops init --wizard
+```
 
-### Initialize security settings
-
+### 2. Or non-interactive:
 ```bash
 devsecops init
 ```
 
-This will:
+This generates:
 
-- Detect Node.js or Go  
-- Generate `security-config.yml`  
-- Create `.github/workflows/security.yml`  
-- Enable default scanners (Semgrep + Gitleaks)
+```
+security-config.yml
+.github/workflows/security.yml
+```
 
----
+### 3. Diagnose environment
+```bash
+devsecops diagnose
+```
 
 ## 🔧 CLI Flags
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--tools` | Comma-separated list: `semgrep`, `gitleaks`, `trivy` | `semgrep,gitleaks` |
-| `--severity` | Minimum severity to fail CI | `high` |
-| `--output` | Output directory | `./` |
-| `--dry-run` | Preview without generating files | `false` |
-| `-y, --yes` | Skip confirmation prompts | `false` |
-| `--version` | Show version | — |
+| Flag           | Description                         |
+|----------------|-------------------------------------|
+| `--wizard`     | Launch interactive configuration     |
+| `--severity`   | Set severity threshold               |
+| `--no-semgrep` | Disable Semgrep                      |
+| `--no-gitleaks`| Disable Gitleaks                     |
+| `--no-trivy`   | Disable Trivy                        |
+| `--verbose`    | Verbose mode                         |
 
----
+## 📄 Example Security Summary Comment (PR)
 
-## 📝 Usage Examples
+```markdown
+### 🔐 DevSecOps Kit Security Summary
 
-### 1. Basic initialization
-```bash
-devsecops init
+- **Gitleaks:** 0 leaks
+- **Trivy vulnerabilities:**
+  - CRITICAL: 0
+  - HIGH: 2
+  - MEDIUM: 7
+
+✅ Status: No blocking issues detected.
 ```
 
-### 2. Enable all tools
-```bash
-devsecops init --tools semgrep,gitleaks,trivy
+## 📁 Example Artifacts
+
 ```
-
-### 3. Fail on ANY severity
-```bash
-devsecops init --severity low
+security-reports/
+  trivy-fs.json
+  gitleaks-report.json
+  summary.json
 ```
-
-### 4. Strict performance mode (fail only critical)
-```bash
-devsecops init --severity critical
-```
-
-### 5. Preview before generating (dry run)
-```bash
-devsecops init --dry-run
-```
-
-### 6. Custom output folder
-```bash
-devsecops init --output ./ci/security
-```
-
-### 7. Non-interactive mode (CI-friendly)
-```bash
-devsecops init -y
-```
-
----
-
-## 📄 Example Configurations
-
-### Node.js example (`security-config.yml`)
-
-```yaml
-language: node
-tools:
-  semgrep: true
-  gitleaks: true
-  trivy: true
-severity_threshold: high
-
-metadata:
-  generated_at: 2025-01-01T12:34:56Z
-  version: 0.1.0
-```
-
-### Go example
-
-```yaml
-language: go
-tools:
-  semgrep: true
-  gitleaks: true
-  trivy: true
-severity_threshold: high
-
-metadata:
-  generated_at: 2025-01-01T12:34:56Z
-  version: 0.1.0
-```
-
----
-
-## ⚙️ Example GitHub Actions Workflow
-
-### Node.js Version
-
-```yaml
-name: Security Scan
-
-on:
-  push:
-    branches: ["main"]
-  pull_request:
-
-jobs:
-  security:
-    name: Run Security Scans
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Semgrep Code Scan
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: "p/ci"
-
-      - name: Secrets Scan (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          args: "--config-path=.gitleaks.toml --verbosity=info"
-
-      - name: Dependency Scan (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          severity: "HIGH,CRITICAL"
-```
-
----
-
-### Go Version
-
-```yaml
-name: Security Scan
-
-on:
-  push:
-    branches: ["main"]
-  pull_request:
-
-jobs:
-  security:
-    name: Run Security Scans
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
-
-      - name: Semgrep Code Scan
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: "p/ci"
-
-      - name: Secrets Scan (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-
-      - name: Dependency Scan (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          severity: "HIGH,CRITICAL"
-```
-
----
 
 ## 🧭 Roadmap
 
-| Version | Planned Feature |
-|---------|-----------------|
-| **v0.2.0** | Prebuilt binaries for Mac, Linux, Windows |
-| **v0.3.0** | Python, Java & Dockerfile detection |
-| **v0.4.0** | Local CLI command to run all scans |
-| **v0.5.0** | VS Code extension for workflow generation |
-| **v1.0.0** | Fully interactive onboarding wizard |
-
----
+| Version | Features |
+|---------|----------|
+| **0.3.0** | Fail-on logic, exclude-paths integration, Semgrep JSON support |
+| **0.4.0** | Local CLI scans (`devsecops scan`) |
+| **0.5.0** | Expanded detection: Python, Java, Dockerfiles |
+| **1.0.0** | Full onboarding experience + multi-CI support |
 
 ## 🤝 Contributing
 
-Contributions are welcome.
+Contributions are welcome!
 
-1. Fork the repo  
-2. Create a feature branch  
-3. Run `make build` before submitting  
-4. Open a PR following conventional commits  
+- Fork the repository  
+- Create a feature branch  
+- Run `make build` before submitting  
+- Follow conventional commits  
+- Open a PR 🎉
 
----
+## 📜 License
 
-## 🧪 Development
+MIT — free for personal and commercial use.
 
-### Build:
-```bash
-make build
-```
+## 🛡️ Security & Privacy
 
-### Tests:
-```bash
-make test
-```
-
-### Formatting:
-```bash
-make fmt
-```
-
----
+- No telemetry  
+- No tracking  
+- No code uploads  
+- All scans run locally or in your own CI  
+- OSS tools with strong community support  
 
 ## ❓ FAQ
 
-### Is it only for GitHub Actions?
-For now, yes. GitLab & Jenkins support are planned.
+### Does it overwrite existing CI workflows?
+No — unless you explicitly approve it.
 
-### Will it overwrite my workflows?
-No. It creates new files unless you pass `--yes`.
+### Does it support GitLab or Jenkins?
+Coming soon (planned in v0.4.x).
 
-### Does it send telemetry?
-Never. No tracking. 100% local.
+### Will more languages be supported?
+Yes, Python, Java, Dockerfile detection is planned for v0.5.0.
