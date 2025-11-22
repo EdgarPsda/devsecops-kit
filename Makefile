@@ -1,7 +1,7 @@
 # Makefile
 
 MODULE_PATH := github.com/edgarpsda/devsecops-kit
-VERSION ?= 0.1.0
+VERSION ?= 0.3.0
 
 BINARY_NAME := devsecops
 
