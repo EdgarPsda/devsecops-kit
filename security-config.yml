@@ -26,7 +26,7 @@ fail_on:
   gitleaks: 0           # Fail if ANY secrets detected (recommended: 0)
   semgrep: 10           # Fail if 10+ Semgrep findings
   trivy_critical: 0     # Fail if ANY critical vulnerabilities
-  trivy_high: 0         # Fail if 5+ high severity vulnerabilities
+  trivy_high: 5         # Fail if 5+ high severity vulnerabilities
   trivy_medium: -1      # Disabled by default (set to number to enable)
   trivy_low: -1         # Disabled by default
 

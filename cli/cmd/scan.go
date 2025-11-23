@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
 	"github.com/edgarpsda/devsecops-kit/cli/config"
@@ -18,6 +20,7 @@ var (
 	scanFailOnThreshold  bool
 	scanOutputFormat     string
 	scanConfigPath       string
+	scanOpenReport       bool
 )
 
 var scanCmd = &cobra.Command{
@@ -34,8 +37,9 @@ func init() {
 
 	scanCmd.Flags().StringVar(&scanTool, "tool", "", "Specific tool to run (semgrep, gitleaks, trivy)")
 	scanCmd.Flags().BoolVar(&scanFailOnThreshold, "fail-on-threshold", false, "Exit with code 1 if findings exceed thresholds")
-	scanCmd.Flags().StringVar(&scanOutputFormat, "format", "terminal", "Output format: terminal, json")
+	scanCmd.Flags().StringVar(&scanOutputFormat, "format", "terminal", "Output format: terminal, json, html")
 	scanCmd.Flags().StringVar(&scanConfigPath, "config", "security-config.yml", "Path to security-config.yml")
+	scanCmd.Flags().BoolVar(&scanOpenReport, "open", false, "Auto-open HTML report in browser (requires --format=html)")
 }
 
 func runScan() error {
@@ -91,6 +95,8 @@ func runScan() error {
 	switch scanOutputFormat {
 	case "json":
 		return outputJSON(report)
+	case "html":
+		return outputHTML(report, scanOpenReport)
 	case "terminal":
 		fallthrough
 	default:
@@ -115,4 +121,46 @@ func outputJSON(report *scanners.ScanReport) error {
 
 	fmt.Println(string(data))
 	return nil
+}
+
+// outputHTML generates and optionally opens an HTML report
+func outputHTML(report *scanners.ScanReport, openBrowser bool) error {
+	htmlReporter := reporters.NewHTMLReporter(report)
+
+	reportPath := "security-report.html"
+	if err := htmlReporter.WriteFile(reportPath); err != nil {
+		return err
+	}
+
+	fmt.Printf("✅ HTML report generated: %s\n", reportPath)
+
+	if openBrowser {
+		// Try to open in browser
+		absPath, err := filepath.Abs(reportPath)
+		if err == nil {
+			fileURL := fmt.Sprintf("file://%s", absPath)
+			openInBrowser(fileURL)
+			fmt.Printf("🌐 Opening report in browser...\n")
+		}
+	}
+
+	return nil
+}
+
+// openInBrowser opens a URL in the default browser
+func openInBrowser(url string) {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	}
+
+	if cmd != nil {
+		_ = cmd.Start() // Ignore errors, browser might not be available
+	}
 }

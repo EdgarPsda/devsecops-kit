@@ -5,7 +5,7 @@ DevSecOps Kit detects your project (Node.js or Go), generates a hardened GitHub 
 
 Designed for small teams, freelancers, and agencies who need practical DevSecOps without complexity.
 
-## 🚀 Key Features (v0.4.0)
+## 🚀 Key Features (v0.4.1)
 
 ### 🔍 Automatic Project Detection
 Works out-of-the-box with:
@@ -55,22 +55,26 @@ Get detailed, actionable feedback directly on your code:
 - References to security best practices
 - Automatic comment placement on changed files only
 
-### 🔍 Local Security Scanning 🆕
+### 🔍 Local Security Scanning
 Run security scans locally before pushing:
 
 ```bash
-devsecops scan                    # Run all enabled scanners
-devsecops scan --tool=semgrep     # Run specific tool
-devsecops scan --format=json      # JSON output for CI integration
-devsecops scan --fail-on-threshold # Exit code 1 if thresholds exceeded
+devsecops scan                      # Run all enabled scanners
+devsecops scan --tool=semgrep       # Run specific tool
+devsecops scan --format=terminal    # Rich terminal output (default)
+devsecops scan --format=json        # JSON output for CI integration
+devsecops scan --format=html        # Beautiful HTML report
+devsecops scan --format=html --open # Auto-open in browser
+devsecops scan --fail-on-threshold  # Exit code 1 if thresholds exceeded
 ```
 
 **Features:**
 - Parallel execution of Semgrep, Gitleaks, and Trivy
-- Rich color-coded terminal output
+- **Rich color-coded terminal output** with progress bars
+- **Beautiful HTML reports** with interactive charts
 - Respects `security-config.yml` thresholds and exclusions
 - Docker image scanning when Dockerfile detected
-- JSON output format for integrations
+- Multiple output formats (terminal, JSON, HTML)
 
 ### 🪝 Git Hooks Integration 🆕
 Automatically run security scans before commits and pushes:
@@ -269,7 +273,7 @@ security-reports/
 |---------|----------|--------|
 | **0.3.0** | Config-driven fail gates, exclude paths, Docker detection, image scanning, inline PR comments | ✅ **Released** |
 | **0.4.0** | Local CLI scans (`devsecops scan`), git hooks, rich terminal UI, YAML config parsing | ✅ **Released** |
-| **0.4.1** | HTML report generation, progress bars, performance optimization | 🚧 In Progress |
+| **0.4.1** | HTML report generation, progress bars, real-time UI feedback | ✅ **Released** |
 | **0.5.0** | Python/Java detection, expanded framework support | 📋 Planned |
 | **1.0.0** | Full onboarding UX, multi-CI support (GitLab, Jenkins) | 📋 Planned |
 
