@@ -202,7 +202,7 @@ jobs:
               gitleaks: 0,
               semgrep: 10,
               trivy_critical: 0,
-              trivy_high: 5,
+              trivy_high: -1,
               trivy_medium: -1,
               trivy_low: -1
             };

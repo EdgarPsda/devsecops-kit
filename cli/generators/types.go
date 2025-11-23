@@ -13,4 +13,6 @@ type InitConfig struct {
 	Project           *detectors.ProjectInfo
 	SeverityThreshold string
 	Tools             ToolsConfig
+	ExcludePaths      []string
+	FailOn            map[string]int
 }
