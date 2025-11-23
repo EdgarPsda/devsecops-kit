@@ -13,6 +13,41 @@ and this project adheres (loosely) to [Semantic Versioning](https://semver.org/s
 
 ---
 
+## [0.4.1] - 2025-11-22
+
+### Added
+
+- **HTML Report Generation** 📊:
+  - Beautiful, self-contained HTML reports with embedded CSS
+  - Interactive charts using Chart.js (severity distribution, findings by tool)
+  - Summary dashboard with statistics per tool
+  - Detailed findings organized by severity and tool
+  - Export findings as JSON from the report
+  - Responsive design (mobile/tablet/desktop friendly)
+  - Print-friendly styling (exportable to PDF)
+  - Cross-platform browser opening (macOS, Linux, Windows)
+
+- **Progress Bars & Real-time UI** ⏳:
+  - Visual progress bars for each scanner `[████████░░]`
+  - Status icons (✅ completed, ❌ error, ⏳ running)
+  - Execution time tracking per scanner
+  - Thread-safe progress updates
+  - Clear screen display with real-time feedback
+
+- **New CLI Flags**:
+  - `--format=html`: Generate HTML report (default: terminal)
+  - `--open`: Auto-open HTML report in default browser
+  - Enhanced `--format` flag with three output options: terminal, json, html
+
+### Changed
+
+- **README.md** updated for v0.4.1:
+  - Updated key features to show HTML and progress bar capabilities
+  - Added HTML report examples and command usage
+  - Updated roadmap with v0.4.1 released status
+
+---
+
 ## [0.4.0] - 2025-11-22
 
 ### Added
