@@ -13,7 +13,49 @@ and this project adheres (loosely) to [Semantic Versioning](https://semver.org/s
 
 ---
 
-## [0.3.0] - 2025-01-XX
+## [0.4.0] - 2025-11-22
+
+### Added
+
+- **`devsecops scan` command** 🔍:
+  - Run Semgrep, Gitleaks, and Trivy scans locally
+  - Parallel execution of all three scanners
+  - Respects `security-config.yml` configuration
+  - Automatic Docker image scanning when Dockerfile detected
+  - JSON output format for CI/CD integrations
+  - Exit code 1 when thresholds exceeded (with `--fail-on-threshold`)
+
+- **Rich terminal UI** 🎨:
+  - Color-coded output (red for CRITICAL, yellow for HIGH, etc.)
+  - Emoji indicators for visual feedback (✅, ❌, 🔍, ⚠️)
+  - ASCII borders and professional formatting
+  - Tool summaries with finding counts
+  - Detailed findings with file, line, severity, and rule information
+
+- **YAML config file parsing** 📝:
+  - Load and parse `security-config.yml` in Go code
+  - Support for all configuration options (fail_on, exclude_paths, tools)
+  - Default values when config file missing
+  - Full validation of config structure
+
+- **Git hooks integration** 🪝:
+  - New `devsecops init-hooks` command
+  - Pre-commit hook: Blocks commits if security issues exceed thresholds
+  - Pre-push hook: Warns about issues but allows push to proceed
+  - `--uninstall` flag to remove hooks
+  - Hooks read from `.git/hooks/` directory
+
+### Changed
+
+- **README.md** updated for v0.4.0:
+  - Added documentation for `devsecops scan` command
+  - Added git hooks usage examples
+  - Updated key features section with local scanning capabilities
+  - Updated roadmap with v0.4.0 released status
+
+---
+
+## [0.3.0] - 2025-11-22
 
 ### Added
 
