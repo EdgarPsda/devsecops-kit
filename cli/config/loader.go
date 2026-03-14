@@ -16,6 +16,7 @@ type SecurityConfig struct {
 	Tools             ToolsConfig       `yaml:"tools"`
 	ExcludePaths      []string          `yaml:"exclude_paths"`
 	FailOn            map[string]int    `yaml:"fail_on"`
+	Licenses          LicensesConfig    `yaml:"licenses"`
 	Notifications     NotificationsConfig `yaml:"notifications"`
 }
 
@@ -24,6 +25,13 @@ type ToolsConfig struct {
 	Semgrep  bool `yaml:"semgrep"`
 	Trivy    bool `yaml:"trivy"`
 	Gitleaks bool `yaml:"gitleaks"`
+}
+
+// LicensesConfig represents the licenses section
+type LicensesConfig struct {
+	Enabled bool     `yaml:"enabled"`
+	Deny    []string `yaml:"deny"`
+	Allow   []string `yaml:"allow"`
 }
 
 // NotificationsConfig represents the notifications section
@@ -98,12 +106,13 @@ func setConfigDefaults(config *SecurityConfig) {
 	}
 
 	defaults := map[string]int{
-		"gitleaks":       0,
-		"semgrep":        10,
-		"trivy_critical": 0,
-		"trivy_high":     5,
-		"trivy_medium":   -1,
-		"trivy_low":      -1,
+		"gitleaks":           0,
+		"semgrep":            10,
+		"trivy_critical":     0,
+		"trivy_high":         5,
+		"trivy_medium":       -1,
+		"trivy_low":          -1,
+		"license_violations": -1,
 	}
 
 	for key, defaultValue := range defaults {

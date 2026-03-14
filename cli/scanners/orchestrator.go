@@ -29,8 +29,8 @@ func (o *Orchestrator) Run() (*ScanReport, error) {
 
 	// Track which scanners to run
 	var wg sync.WaitGroup
-	resultsChan := make(chan *ScanResult, 3)
-	errsChan := make(chan error, 3)
+	resultsChan := make(chan *ScanResult, 4)
+	errsChan := make(chan error, 4)
 
 	// Run Semgrep
 	if o.options.EnableSemgrep {
@@ -68,6 +68,20 @@ func (o *Orchestrator) Run() (*ScanReport, error) {
 			result, err := o.runTrivy()
 			if err != nil {
 				errsChan <- fmt.Errorf("trivy scan failed: %w", err)
+				return
+			}
+			resultsChan <- result
+		}()
+	}
+
+	// Run License scan
+	if o.options.EnableLicenses {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := o.runLicenseScan()
+			if err != nil {
+				errsChan <- fmt.Errorf("license scan failed: %w", err)
 				return
 			}
 			resultsChan <- result
@@ -151,6 +165,15 @@ func (o *Orchestrator) calculateBlockingCount(report *ScanReport) {
 				if count, ok := counts[severity]; ok && count > threshold {
 					report.BlockingCount += count - threshold
 				}
+			}
+		}
+	}
+
+	// Check License violations threshold
+	if licenses, ok := report.Results["licenses"]; ok {
+		if threshold, exists := o.options.FailOnThresholds["license_violations"]; exists && threshold >= 0 {
+			if licenses.Summary.Total > threshold {
+				report.BlockingCount += licenses.Summary.Total - threshold
 			}
 		}
 	}
