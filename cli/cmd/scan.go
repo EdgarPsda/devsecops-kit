@@ -37,7 +37,7 @@ func init() {
 
 	scanCmd.Flags().StringVar(&scanTool, "tool", "", "Specific tool to run (semgrep, gitleaks, trivy)")
 	scanCmd.Flags().BoolVar(&scanFailOnThreshold, "fail-on-threshold", false, "Exit with code 1 if findings exceed thresholds")
-	scanCmd.Flags().StringVar(&scanOutputFormat, "format", "terminal", "Output format: terminal, json, html")
+	scanCmd.Flags().StringVar(&scanOutputFormat, "format", "terminal", "Output format: terminal, json, html, sarif")
 	scanCmd.Flags().StringVar(&scanConfigPath, "config", "security-config.yml", "Path to security-config.yml")
 	scanCmd.Flags().BoolVar(&scanOpenReport, "open", false, "Auto-open HTML report in browser (requires --format=html)")
 }
@@ -71,9 +71,15 @@ func runScan() error {
 		EnableGitleaks:    secConfig.Tools.Gitleaks,
 		EnableTrivy:       secConfig.Tools.Trivy,
 		EnableTrivyImage:  secConfig.Tools.Trivy && projectInfo.HasDocker,
+		EnableLicenses:    secConfig.Licenses.Enabled,
 		DockerImages:      projectInfo.DockerImages,
 		ExcludePaths:      secConfig.ExcludePaths,
 		FailOnThresholds:  secConfig.FailOn,
+		LicenseConfig: scanners.LicenseConfig{
+			Enabled: secConfig.Licenses.Enabled,
+			Deny:    secConfig.Licenses.Deny,
+			Allow:   secConfig.Licenses.Allow,
+		},
 		Verbose:           false,
 	}
 
@@ -82,6 +88,7 @@ func runScan() error {
 		options.EnableSemgrep = scanTool == "semgrep"
 		options.EnableGitleaks = scanTool == "gitleaks"
 		options.EnableTrivy = scanTool == "trivy"
+		options.EnableLicenses = scanTool == "licenses"
 	}
 
 	// Run orchestrator
@@ -97,6 +104,8 @@ func runScan() error {
 		return outputJSON(report)
 	case "html":
 		return outputHTML(report, scanOpenReport)
+	case "sarif":
+		return outputSARIF(report)
 	case "terminal":
 		fallthrough
 	default:
@@ -120,6 +129,19 @@ func outputJSON(report *scanners.ScanReport) error {
 	}
 
 	fmt.Println(string(data))
+	return nil
+}
+
+// outputSARIF generates a SARIF report
+func outputSARIF(report *scanners.ScanReport) error {
+	sarifReporter := reporters.NewSARIFReporter(report)
+
+	reportPath := "security-report.sarif"
+	if err := sarifReporter.WriteFile(reportPath); err != nil {
+		return err
+	}
+
+	fmt.Printf("✅ SARIF report generated: %s\n", reportPath)
 	return nil
 }
 
