@@ -30,7 +30,8 @@ func DetectProject(dir string) (*ProjectInfo, error) {
 	detectors := []Detector{
 		&NodeDetector{},
 		&GoDetector{},
-		// Add more detectors here in the future
+		&PythonDetector{},
+		&JavaDetector{},
 	}
 
 	var bestMatch *ProjectInfo
