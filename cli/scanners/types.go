@@ -36,9 +36,11 @@ type ScanOptions struct {
 	EnableGitleaks   bool
 	EnableTrivy      bool
 	EnableTrivyImage bool
+	EnableLicenses   bool
 	DockerImages     []string
 	ExcludePaths     []string
 	FailOnThresholds map[string]int
+	LicenseConfig    LicenseConfig
 	Verbose          bool
 }
 
