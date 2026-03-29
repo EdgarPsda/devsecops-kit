@@ -17,6 +17,10 @@ func GenerateGithubActions(cfg *InitConfig) error {
 		tmplName = "workflows/node_security.yml.tmpl"
 	case "golang":
 		tmplName = "workflows/go_security.yml.tmpl"
+	case "python":
+		tmplName = "workflows/python_security.yml.tmpl"
+	case "java":
+		tmplName = "workflows/java_security.yml.tmpl"
 	default:
 		return fmt.Errorf("no workflow template for language: %s", cfg.Project.Language)
 	}
