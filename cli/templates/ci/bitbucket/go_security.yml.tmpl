@@ -1,0 +1,124 @@
+image: golang:1.22
+
+pipelines:
+  default:
+    - step:
+        name: Security Scan
+        caches:
+          - go
+        artifacts:
+          - artifacts/security/**
+        script:
+          - apt-get update -qq && apt-get install -y -qq curl python3 python3-pip
+          - pip3 install pyyaml --quiet
+          - mkdir -p artifacts/security
+
+          - |
+            python3 << 'EOF'
+            import yaml, json, os
+            exclude_paths = []
+            try:
+                if os.path.exists('security-config.yml'):
+                    with open('security-config.yml') as f:
+                        config = yaml.safe_load(f)
+                        if config and 'exclude_paths' in config:
+                            exclude_paths = config['exclude_paths'] or []
+            except Exception as e:
+                print(f"Error reading config: {e}")
+            with open('/tmp/semgrep_excludes', 'w') as f:
+                f.write(' '.join([f'--exclude {p}' for p in exclude_paths]))
+            with open('/tmp/gitleaks_excludes', 'w') as f:
+                f.write(','.join(exclude_paths))
+            EOF
+
+          - go mod download 2>/dev/null || true
+
+          {{- if .Tools.Semgrep }}
+          - pip3 install semgrep --quiet
+          - SEMGREP_EXCLUDES=$(cat /tmp/semgrep_excludes)
+          - semgrep --config p/ci $SEMGREP_EXCLUDES --json > artifacts/security/semgrep-report.json || true
+          {{- end }}
+
+          {{- if .Tools.Gitleaks }}
+          - |
+            GITLEAKS_EXCLUDES=$(cat /tmp/gitleaks_excludes)
+            curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.1/gitleaks_8.18.1_linux_x64.tar.gz | tar -xz
+            mv gitleaks /usr/local/bin/
+            if [ -n "$GITLEAKS_EXCLUDES" ]; then
+              printf '[allowlist]\npaths = ["%s"]\n' "$GITLEAKS_EXCLUDES" > .gitleaks.toml
+              gitleaks detect --report-format json --report-path artifacts/security/gitleaks-report.json --config .gitleaks.toml --exit-code 0 || true
+            else
+              gitleaks detect --report-format json --report-path artifacts/security/gitleaks-report.json --exit-code 0 || true
+            fi
+          {{- end }}
+
+          {{- if .Tools.Trivy }}
+          - |
+            curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+            SKIP_DIRS=$(cat /tmp/gitleaks_excludes)
+            trivy fs . --format json --output artifacts/security/trivy-fs.json --severity HIGH,CRITICAL ${SKIP_DIRS:+--skip-dirs $SKIP_DIRS} || true
+          {{- end }}
+
+          - |
+            python3 << 'EOF'
+            import yaml, json, os
+            fail_on = {'gitleaks': 0, 'semgrep': 10, 'trivy_critical': 0, 'trivy_high': 5, 'trivy_medium': -1, 'trivy_low': -1}
+            try:
+                if os.path.exists('security-config.yml'):
+                    with open('security-config.yml') as f:
+                        config = yaml.safe_load(f)
+                        if config and 'fail_on' in config:
+                            fail_on.update(config['fail_on'])
+            except Exception as e:
+                print(f"Error reading config: {e}")
+            os.makedirs('artifacts/security', exist_ok=True)
+            with open('artifacts/security/fail-on.json', 'w') as out:
+                json.dump(fail_on, out)
+            EOF
+
+          - |
+            python3 << 'EOF'
+            import json, os
+            d = 'artifacts/security'
+            def read_json(f):
+                if not os.path.exists(f): return None
+                try: return json.load(open(f))
+                except: return None
+
+            fail_on = read_json(f'{d}/fail-on.json') or {'gitleaks': 0, 'semgrep': 10, 'trivy_critical': 0, 'trivy_high': 5}
+            result = {'version': '0.6.0', 'status': 'PASS', 'blocking_count': 0, 'summary': {}}
+
+            gitleaks = read_json(f'{d}/gitleaks-report.json')
+            if gitleaks is not None:
+                count = len(gitleaks) if isinstance(gitleaks, list) else len(gitleaks.get('findings', []))
+                result['summary']['gitleaks'] = {'total': count}
+                if fail_on.get('gitleaks', 0) >= 0 and count > fail_on.get('gitleaks', 0):
+                    result['blocking_count'] += count - fail_on['gitleaks']
+
+            trivy = read_json(f'{d}/trivy-fs.json')
+            if trivy and trivy.get('Results'):
+                counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
+                for r in trivy['Results']:
+                    for v in (r.get('Vulnerabilities') or []):
+                        s = v.get('Severity', '').lower()
+                        if s in counts: counts[s] += 1
+                result['summary']['trivy_fs'] = counts
+                for s, k in [('critical','trivy_critical'),('high','trivy_high'),('medium','trivy_medium'),('low','trivy_low')]:
+                    if fail_on.get(k, -1) >= 0 and counts[s] > fail_on[k]:
+                        result['blocking_count'] += counts[s] - fail_on[k]
+
+            semgrep = read_json(f'{d}/semgrep-report.json')
+            if semgrep is not None:
+                items = semgrep if isinstance(semgrep, list) else semgrep.get('results', [])
+                count = len(items)
+                result['summary']['semgrep'] = {'total': count}
+                if fail_on.get('semgrep', 10) >= 0 and count > fail_on.get('semgrep', 10):
+                    result['blocking_count'] += count - fail_on['semgrep']
+
+            result['status'] = 'FAIL' if result['blocking_count'] > 0 else 'PASS'
+            with open(f'{d}/summary.json', 'w') as out:
+                json.dump(result, out, indent=2)
+            print(f"Status: {result['status']} | Blocking: {result['blocking_count']}")
+            if result['status'] == 'FAIL':
+                raise SystemExit(1)
+            EOF
