@@ -72,6 +72,7 @@ func runScan() error {
 		EnableTrivy:       secConfig.Tools.Trivy,
 		EnableTrivyImage:  secConfig.Tools.Trivy && projectInfo.HasDocker,
 		EnableLicenses:    secConfig.Licenses.Enabled,
+		EnableCheckov:     secConfig.Tools.Checkov,
 		DockerImages:      projectInfo.DockerImages,
 		ExcludePaths:      secConfig.ExcludePaths,
 		FailOnThresholds:  secConfig.FailOn,
@@ -89,6 +90,7 @@ func runScan() error {
 		options.EnableGitleaks = scanTool == "gitleaks"
 		options.EnableTrivy = scanTool == "trivy"
 		options.EnableLicenses = scanTool == "licenses"
+		options.EnableCheckov = scanTool == "checkov"
 	}
 
 	// Run orchestrator
