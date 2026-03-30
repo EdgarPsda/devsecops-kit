@@ -1,159 +1,108 @@
-# 📘 DevSecOps Kit
+# DevSecOps Kit
 
 Modern, opinionated CLI to bootstrap a complete security pipeline for small teams — instantly.
-DevSecOps Kit detects your project (Node.js or Go), generates a hardened GitHub Actions workflow, and produces a centralized security configuration that evolves with your needs.
 
-Designed for small teams, freelancers, and agencies who need practical DevSecOps without complexity.
+DevSecOps Kit detects your project type, generates a hardened CI/CD security workflow, and runs local scans with actionable results. Designed for small teams and developers who need practical DevSecOps without complexity.
 
-## 🚀 Key Features (v0.4.1)
+## Features
 
-### 🔍 Automatic Project Detection
-Works out-of-the-box with:
+### Project Detection
 
-- Node.js (`package.json`)
-- Go (`go.mod`)
-- **Docker** (Dockerfile detection) 🆕
+Automatically detects language and framework from your project files:
 
-### ⚙️ Auto-Generated Security Pipeline
-Generates a ready-to-run GitHub Actions workflow including:
+| Language | Detection files | Frameworks |
+|----------|----------------|------------|
+| Node.js | `package.json` | Express, Next.js, NestJS, Fastify, Koa |
+| Go | `go.mod` | Gin, Echo, Fiber, Chi |
+| Python | `requirements.txt`, `pyproject.toml`, `Pipfile`, `setup.py` | Django, Flask, FastAPI, Scrapy |
+| Java | `pom.xml`, `build.gradle`, `build.gradle.kts` | Spring Boot, Quarkus, Micronaut |
 
-- Semgrep (SAST)
-- Gitleaks (Secrets detection)
-- Trivy (FS + dependency scanning)
-- **Trivy Image Scanning** (when Dockerfile present) 🆕
-- Hardened permissions
-- Artifact uploads
-- Timeout protections
+Docker detection is included for all languages — Trivy image scanning is enabled automatically when a `Dockerfile` is present.
 
-### 🎯 Config-Driven Fail Gates 🆕
-Define thresholds that automatically fail CI builds:
+### Security Scanners
 
-```yaml
-fail_on:
-  gitleaks: 0           # Fail if ANY secrets detected
-  semgrep: 10           # Fail if 10+ findings
-  trivy_critical: 0     # Fail if ANY critical vulnerabilities
-  trivy_high: 5         # Fail if 5+ high severity vulnerabilities
-```
+| Tool | What it scans | When it runs |
+|------|--------------|--------------|
+| **Semgrep** | SAST — code patterns, security anti-patterns | Always (opt-out) |
+| **Gitleaks** | Secrets — API keys, tokens, passwords in code | Always (opt-out) |
+| **Trivy** | Dependencies, container images, misconfigurations | Always (opt-out) |
+| **Checkov** | IaC — Terraform, CloudFormation, K8s manifests, Dockerfiles | Opt-in |
 
-### 🚫 Exclude Paths 🆕
-Reduce noise by excluding directories from scans:
+### Multi-CI Workflow Generation
 
-```yaml
-exclude_paths:
-  - "vendor/"
-  - "node_modules/"
-  - "test/"
-  - "*.test.js"
-```
-
-### 💬 Inline "Fix-it" PR Comments
-Get detailed, actionable feedback directly on your code:
-
-- File/line-specific comments for security issues
-- Remediation guidance for each finding
-- References to security best practices
-- Automatic comment placement on changed files only
-
-### 🔍 Local Security Scanning
-Run security scans locally before pushing:
+Generate security pipelines for any CI platform:
 
 ```bash
-devsecops scan                      # Run all enabled scanners
-devsecops scan --tool=semgrep       # Run specific tool
-devsecops scan --format=terminal    # Rich terminal output (default)
-devsecops scan --format=json        # JSON output for CI integration
-devsecops scan --format=html        # Beautiful HTML report
-devsecops scan --format=html --open # Auto-open in browser
-devsecops scan --fail-on-threshold  # Exit code 1 if thresholds exceeded
+devsecops init                    # GitHub Actions (default)
+devsecops init --ci=gitlab        # GitLab CI (.gitlab-ci.yml)
+devsecops init --ci=bitbucket     # Bitbucket Pipelines (bitbucket-pipelines.yml)
 ```
 
-**Features:**
-- Parallel execution of Semgrep, Gitleaks, and Trivy
-- **Rich color-coded terminal output** with progress bars
-- **Beautiful HTML reports** with interactive charts
-- Respects `security-config.yml` thresholds and exclusions
-- Docker image scanning when Dockerfile detected
-- Multiple output formats (terminal, JSON, HTML)
+All generated workflows include parallel scanner execution, configurable fail gates, artifact uploads, and automatic PR security summary comments (GitHub Actions only).
 
-### 🪝 Git Hooks Integration 🆕
-Automatically run security scans before commits and pushes:
+### Local Security Scanning
+
+```bash
+devsecops scan                        # Run all enabled scanners
+devsecops scan --tool=semgrep         # Run a specific scanner
+devsecops scan --tool=checkov         # Run IaC scanning
+devsecops scan --format=terminal      # Rich terminal output (default)
+devsecops scan --format=json          # JSON for CI integration
+devsecops scan --format=html          # HTML report
+devsecops scan --format=html --open   # HTML report, auto-open in browser
+devsecops scan --format=sarif         # SARIF for GitHub Code Scanning
+devsecops scan --fail-on-threshold    # Exit code 1 if thresholds exceeded
+```
+
+### SBOM Generation
+
+Generate a Software Bill of Materials for compliance and supply chain visibility:
+
+```bash
+devsecops sbom                        # CycloneDX format (default)
+devsecops sbom --format=spdx          # SPDX format
+```
+
+### AI Fix Suggestions
+
+Get actionable fix suggestions for HIGH and CRITICAL findings, powered by your choice of LLM:
+
+```yaml
+# security-config.yml
+ai:
+  enabled: true
+  provider: "ollama"              # ollama | openai | anthropic
+  model: "llama3.1"               # model name for the selected provider
+  endpoint: "http://localhost:11434"  # ollama only
+```
+
+When enabled, each HIGH/CRITICAL finding in the terminal report includes a `💡 Fix:` suggestion. Suggestions are cached per unique rule+finding so identical issues are only sent to the LLM once per session.
+
+For OpenAI or Anthropic, set the API key via environment variable instead of the config file:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Git Hooks
+
+Block commits or warn on push when security issues exceed thresholds:
 
 ```bash
 devsecops init-hooks              # Install pre-commit and pre-push hooks
 devsecops init-hooks --uninstall  # Remove hooks
 ```
 
-**Behavior:**
-- **Pre-commit hook**: Blocks commits if security issues exceed thresholds
-- **Pre-push hook**: Warns about issues but allows push to proceed
-- Both use the same `security-config.yml` configuration
+### Configuration
 
-### 🧙 Interactive Wizard
-```bash
-devsecops init --wizard
-```
-
-A guided setup for new users:
-
-- Select tools
-- Choose severity gates
-- Preview settings before generating
-
-### 🩺 Environment Diagnose Command
-```bash
-devsecops diagnose
-```
-
-Checks system readiness:
-
-- Installed scanners
-- Docker availability
-- Project detection
-- CI/CD compatibility
-
-### 📦 Artifacts + JSON Summary (CI)
-Each workflow produces:
-
-```
-artifacts/security/
-  gitleaks-report.json
-  semgrep-report.json
-  trivy-fs.json
-  trivy-image.json      # When Dockerfile present
-  summary.json          # v0.3.0 schema
-```
-
-The `summary.json` contains:
-
-- Total secrets leaks
-- Vulnerability counts by severity
-- **PASS/FAIL status based on thresholds** 🆕
-- **Blocking issue count** 🆕
-
-### 💬 Enhanced PR Security Comments 🆕
-Every pull request receives:
-
-1. **Summary Comment** (updated, not duplicated):
-   - Secrets found
-   - FS & Image vulnerabilities
-   - **Clear PASS/FAIL status**
-   - **Blocking issue count**
-
-2. **Inline Fix-it Comments**:
-   - Specific file/line comments
-   - Remediation guidance
-   - Security references
-
-### 📄 Configuration (v0.3.0)
-
-Generated automatically as:
+`security-config.yml` is generated by `devsecops init` and controls all scanner behavior:
 
 ```yaml
-version: "0.3.0"
+version: "0.6.0"
 
-language: "golang"
-framework: ""
+language: "python"
+framework: "django"
 
 severity_threshold: "high"
 
@@ -161,151 +110,118 @@ tools:
   semgrep: true
   trivy: true
   gitleaks: true
+  checkov: false      # opt-in, requires: pip install checkov
 
-# Exclude paths from scanning (reduces noise)
 exclude_paths:
   - "vendor/"
   - "node_modules/"
-  - "test/"
+  - ".venv/"
+  - "target/"
 
-# Fail gates - CI fails if thresholds exceeded
 fail_on:
-  gitleaks: 0           # Fail if ANY secrets detected
-  semgrep: 10           # Fail if 10+ Semgrep findings
-  trivy_critical: 0     # Fail if ANY critical vulnerabilities
-  trivy_high: 5         # Fail if 5+ high severity vulnerabilities
-  trivy_medium: -1      # Disabled (set to number to enable)
-  trivy_low: -1         # Disabled
+  gitleaks: 0           # fail if ANY secrets detected
+  semgrep: 10           # fail if 10+ findings
+  trivy_critical: 0     # fail if ANY critical CVEs
+  trivy_high: 5         # fail if 5+ high CVEs
+  trivy_medium: -1      # disabled (-1 = ignore)
+  trivy_low: -1
+  checkov: -1           # disabled by default
+
+licenses:
+  enabled: false
+  deny: ["GPL-3.0", "AGPL-3.0"]
+  allow: ["MIT", "Apache-2.0", "BSD-*"]
 
 notifications:
   pr_comment: true
   slack: false
   email: false
+
+# ai:
+#   enabled: false
+#   provider: "ollama"
+#   model: "llama3.1"
 ```
 
-**How to customize:**
-1. Run `devsecops init` to generate the config
-2. Edit `security-config.yml` to adjust thresholds and exclusions
-3. Commit changes - they take effect on next CI run
+### Other Commands
 
-## 🛠️ Installation
+```bash
+devsecops detect      # Show detected language and framework
+devsecops diagnose    # Check installed scanners and environment
+devsecops version     # Show version
+devsecops init --wizard  # Interactive guided setup
+```
 
-### Option A — Install via Go
+## Installation
+
+### Install via Go
+
 ```bash
 go install github.com/edgarpsda/devsecops-kit/cmd/devsecops@latest
 ```
 
-Verify:
+### Build from source
 
-```bash
-devsecops version
-```
-
-### Option B — Build from source
 ```bash
 git clone https://github.com/edgarpsda/devsecops-kit.git
 cd devsecops-kit
-make build
-./devsecops version
+go build -o devsecops ./cmd/devsecops/
 ```
 
-## 🚦 Quick Start
+### Scanner dependencies
 
-### 1. Run the wizard (recommended)
-```bash
-devsecops init --wizard
-```
+The CLI orchestrates external tools that must be installed separately:
 
-### 2. Or non-interactive:
+| Tool | Install |
+|------|---------|
+| Semgrep | `pip install semgrep` |
+| Gitleaks | [releases page](https://github.com/gitleaks/gitleaks/releases) |
+| Trivy | [install script](https://aquasecurity.github.io/trivy/latest/getting-started/installation/) |
+| Checkov | `pip install checkov` (optional) |
+| Ollama | [ollama.com](https://ollama.com) (optional, for AI suggestions) |
+
+Run `devsecops diagnose` to check which tools are available.
+
+## Quick Start
+
 ```bash
+# 1. Go to your project directory
+cd my-project
+
+# 2. Initialize — detects language, generates workflow + config
 devsecops init
-```
 
-This generates:
+# 3. Run a local scan
+devsecops scan
 
-```
-security-config.yml
-.github/workflows/security.yml
-```
-
-### 3. Diagnose environment
-```bash
+# 4. Check environment
 devsecops diagnose
 ```
 
-## 🔧 CLI Flags
-
-| Flag           | Description                         |
-|----------------|-------------------------------------|
-| `--wizard`     | Launch interactive configuration     |
-| `--severity`   | Set severity threshold               |
-| `--no-semgrep` | Disable Semgrep                      |
-| `--no-gitleaks`| Disable Gitleaks                     |
-| `--no-trivy`   | Disable Trivy                        |
-| `--verbose`    | Verbose mode                         |
-
-## 📄 Example Security Summary Comment (PR)
-
-```markdown
-### 🔐 DevSecOps Kit Security Summary
-
-- **Gitleaks:** 0 leaks
-- **Trivy vulnerabilities:**
-  - CRITICAL: 0
-  - HIGH: 2
-  - MEDIUM: 7
-
-✅ Status: No blocking issues detected.
-```
-
-## 📁 Example Artifacts
-
-```
-security-reports/
-  trivy-fs.json
-  gitleaks-report.json
-  summary.json
-```
-
-## 🧭 Roadmap
+## Roadmap
 
 | Version | Features | Status |
 |---------|----------|--------|
-| **0.3.0** | Config-driven fail gates, exclude paths, Docker detection, image scanning, inline PR comments | ✅ **Released** |
-| **0.4.0** | Local CLI scans (`devsecops scan`), git hooks, rich terminal UI, YAML config parsing | ✅ **Released** |
-| **0.4.1** | HTML report generation, progress bars, real-time UI feedback | ✅ **Released** |
-| **0.5.0** | Python/Java detection, expanded framework support | 📋 Planned |
-| **1.0.0** | Full onboarding UX, multi-CI support (GitLab, Jenkins) | 📋 Planned |
+| **0.3.0** | Fail gates, exclude paths, Docker detection, PR comments | ✅ Released |
+| **0.4.0** | Local scans, git hooks, terminal UI, YAML config | ✅ Released |
+| **0.4.1** | HTML reports, progress UI | ✅ Released |
+| **0.5.0** | Python/Java detection, SBOM, SARIF output, license compliance | ✅ Released |
+| **0.6.0** | Multi-CI (GitLab/Bitbucket), IaC scanning (Checkov), AI fix suggestions | ✅ Released |
+| **0.7.0** | Vulnerability trending, EPSS/KEV scoring, TruffleHog integration | 📋 Planned |
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome!
+- Fork the repository
+- Create a feature branch (`v<version>/<feature-name>`)
+- Run `go test ./...` before submitting
+- Open a PR
 
-- Fork the repository  
-- Create a feature branch  
-- Run `make build` before submitting  
-- Follow conventional commits  
-- Open a PR 🎉
-
-## 📜 License
+## License
 
 MIT — free for personal and commercial use.
 
-## 🛡️ Security & Privacy
+## Privacy
 
-- No telemetry  
-- No tracking  
-- No code uploads  
-- All scans run locally or in your own CI  
-- OSS tools with strong community support  
-
-## ❓ FAQ
-
-### Does it overwrite existing CI workflows?
-No — unless you explicitly approve it.
-
-### Does it support GitLab or Jenkins?
-Coming soon (planned in v0.4.x).
-
-### Will more languages be supported?
-Yes, Python, Java, Dockerfile detection is planned for v0.5.0.
+- No telemetry, no tracking, no code uploads
+- All scans run locally or in your own CI environment
+- AI suggestions are opt-in; Ollama runs fully locally by default
