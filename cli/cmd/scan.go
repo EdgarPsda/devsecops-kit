@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
+	"github.com/edgarpsda/devsecops-kit/cli/ai"
 	"github.com/edgarpsda/devsecops-kit/cli/config"
 	"github.com/edgarpsda/devsecops-kit/cli/detectors"
 	"github.com/edgarpsda/devsecops-kit/cli/reporters"
@@ -98,6 +99,43 @@ func runScan() error {
 	report, err := orchestrator.Run()
 	if err != nil {
 		return fmt.Errorf("scan failed: %w", err)
+	}
+
+	// Enrich findings with AI suggestions if enabled
+	if secConfig.AI.Enabled {
+		apiKey := secConfig.AI.APIKey
+		if apiKey == "" {
+			switch secConfig.AI.Provider {
+			case "openai":
+				apiKey = os.Getenv("OPENAI_API_KEY")
+			case "anthropic":
+				apiKey = os.Getenv("ANTHROPIC_API_KEY")
+			}
+		}
+		aiClient := ai.NewClient(ai.Config{
+			Enabled:  true,
+			Provider: secConfig.AI.Provider,
+			Model:    secConfig.AI.Model,
+			Endpoint: secConfig.AI.Endpoint,
+			APIKey:   apiKey,
+		})
+		fmt.Println("🤖 Generating AI fix suggestions for HIGH/CRITICAL findings...")
+		aiClient.EnrichFindings(report.AllFindings)
+		// Sync enriched AllFindings back into per-tool Results
+		for i := range report.AllFindings {
+			f := &report.AllFindings[i]
+			if f.AISuggestion == "" {
+				continue
+			}
+			if result, ok := report.Results[f.Tool]; ok {
+				for j := range result.Findings {
+					if result.Findings[j].RuleID == f.RuleID && result.Findings[j].File == f.File {
+						result.Findings[j].AISuggestion = f.AISuggestion
+						break
+					}
+				}
+			}
+		}
 	}
 
 	// Output results

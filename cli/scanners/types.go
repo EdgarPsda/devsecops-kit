@@ -11,14 +11,15 @@ type ScanResult struct {
 
 // Finding represents a single security finding
 type Finding struct {
-	File       string `json:"file"`
-	Line       int    `json:"line"`
-	Column     int    `json:"column,omitempty"`
-	Severity   string `json:"severity"` // "CRITICAL", "HIGH", "MEDIUM", "LOW", or rule ID
-	Message    string `json:"message"`
-	RuleID     string `json:"rule_id,omitempty"`
-	Tool       string `json:"tool"`
-	RemoteURL  string `json:"remote_url,omitempty"` // Link to rule documentation
+	File         string `json:"file"`
+	Line         int    `json:"line"`
+	Column       int    `json:"column,omitempty"`
+	Severity     string `json:"severity"` // "CRITICAL", "HIGH", "MEDIUM", "LOW", or rule ID
+	Message      string `json:"message"`
+	RuleID       string `json:"rule_id,omitempty"`
+	Tool         string `json:"tool"`
+	RemoteURL    string `json:"remote_url,omitempty"`    // Link to rule documentation
+	AISuggestion string `json:"ai_suggestion,omitempty"` // AI-generated fix suggestion
 }
 
 // FindingSummary contains aggregated counts
