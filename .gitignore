@@ -1,6 +1,7 @@
 # Binaries
 devsecops
 devsecops-*
+!demo/devsecops-*
 
 # IDE
 .vscode/

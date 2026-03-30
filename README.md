@@ -4,6 +4,8 @@ Modern, opinionated CLI to bootstrap a complete security pipeline for small team
 
 DevSecOps Kit detects your project type, generates a hardened CI/CD security workflow, and runs local scans with actionable results. Designed for small teams and developers who need practical DevSecOps without complexity.
 
+![DevSecOps Kit demo](demo/devsecops-demo.gif)
+
 ## Features
 
 ### Project Detection
