@@ -63,8 +63,7 @@ func runScan() error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	fmt.Println("🔍 Starting security scans...")
-	fmt.Println()
+	fmt.Fprintln(os.Stderr, "🔍 Starting security scans...")
 
 	// Build scan options from config
 	options := scanners.ScanOptions{
@@ -119,7 +118,7 @@ func runScan() error {
 			Endpoint: secConfig.AI.Endpoint,
 			APIKey:   apiKey,
 		})
-		fmt.Println("🤖 Generating AI fix suggestions for HIGH/CRITICAL findings...")
+		fmt.Fprintln(os.Stderr, "🤖 Generating AI fix suggestions for HIGH/CRITICAL findings...")
 		aiClient.EnrichFindings(report.AllFindings)
 		// Sync enriched AllFindings back into per-tool Results
 		for i := range report.AllFindings {
