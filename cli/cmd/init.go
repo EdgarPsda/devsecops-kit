@@ -18,6 +18,7 @@ var (
 	noTrivyFlag    bool
 	noGitleaksFlag bool
 	wizardFlag     bool
+	ciFlag         string
 )
 
 var initCmd = &cobra.Command{
@@ -63,9 +64,22 @@ or run interactively with --wizard.
 			severity = "high"
 		}
 
+		// Normalize CI provider
+		ci := strings.ToLower(ciFlag)
+		switch ci {
+		case "github", "gitlab", "bitbucket":
+			// ok
+		default:
+			if ci != "" {
+				fmt.Printf("⚠️  Unknown CI provider '%s', defaulting to 'github'\n", ciFlag)
+			}
+			ci = "github"
+		}
+
 		cfg := &generators.InitConfig{
 			Project:           project,
 			SeverityThreshold: severity,
+			CIProvider:        ci,
 			Tools: generators.ToolsConfig{
 				Semgrep:  !noSemgrepFlag,
 				Trivy:    !noTrivyFlag,
@@ -73,15 +87,9 @@ or run interactively with --wizard.
 			},
 		}
 
-		// Ensure .github/workflows exists
-		wfDir := filepath.Join(dir, ".github", "workflows")
-		if err := os.MkdirAll(wfDir, 0o755); err != nil {
-			return fmt.Errorf("failed to create workflows directory: %w", err)
-		}
-
 		fmt.Println("⚙️  Generating workflow + config files...")
 
-		if err := generators.GenerateGithubActions(cfg); err != nil {
+		if err := generateCIWorkflow(cfg, dir); err != nil {
 			return err
 		}
 		if err := generators.GenerateSecurityConfig(cfg); err != nil {
@@ -89,9 +97,7 @@ or run interactively with --wizard.
 		}
 
 		fmt.Println("\n🎉 Done! DevSecOps Kit initialized.")
-		fmt.Println("Files created:")
-		fmt.Println(" - .github/workflows/security.yml")
-		fmt.Println(" - security-config.yml")
+		printGeneratedFiles(ci)
 		return nil
 	},
 }
@@ -104,6 +110,7 @@ func init() {
 	initCmd.Flags().BoolVar(&noTrivyFlag, "no-trivy", false, "Disable Trivy in generated workflow")
 	initCmd.Flags().BoolVar(&noGitleaksFlag, "no-gitleaks", false, "Disable Gitleaks in generated workflow")
 	initCmd.Flags().BoolVar(&wizardFlag, "wizard", false, "Run interactive guided setup")
+	initCmd.Flags().StringVar(&ciFlag, "ci", "github", "CI provider: github, gitlab, bitbucket")
 }
 
 //
@@ -161,10 +168,18 @@ func runInitWizard() error {
 		return nil
 	}
 
+	// Select CI provider
+	fmt.Println("\n🔧 Select CI provider:")
+	ciProvider := askChoice(reader, "github | gitlab | bitbucket [default: github]: ",
+		[]string{"github", "gitlab", "bitbucket"},
+		"github",
+	)
+
 	// Generate config
 	cfg := &generators.InitConfig{
 		Project:           project,
 		SeverityThreshold: severity,
+		CIProvider:        ciProvider,
 		Tools: generators.ToolsConfig{
 			Semgrep:  enableSemgrep,
 			Gitleaks: enableGitleaks,
@@ -172,14 +187,9 @@ func runInitWizard() error {
 		},
 	}
 
-	wfDir := filepath.Join(dir, ".github", "workflows")
-	if err := os.MkdirAll(wfDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create workflows directory: %w", err)
-	}
-
 	fmt.Println("\n⚙️  Generating workflow + config files...")
 
-	if err := generators.GenerateGithubActions(cfg); err != nil {
+	if err := generateCIWorkflow(cfg, dir); err != nil {
 		return err
 	}
 	if err := generators.GenerateSecurityConfig(cfg); err != nil {
@@ -188,10 +198,36 @@ func runInitWizard() error {
 
 	fmt.Println("\n🎉 Setup complete!")
 	fmt.Println("Generated:")
-	fmt.Println(" - .github/workflows/security.yml")
-	fmt.Println(" - security-config.yml")
+	printGeneratedFiles(ciProvider)
 
 	return nil
+}
+
+func generateCIWorkflow(cfg *generators.InitConfig, dir string) error {
+	switch cfg.CIProvider {
+	case "gitlab":
+		return generators.GenerateGitLabCI(cfg)
+	case "bitbucket":
+		return generators.GenerateBitbucketPipelines(cfg)
+	default:
+		wfDir := filepath.Join(dir, ".github", "workflows")
+		if err := os.MkdirAll(wfDir, 0o755); err != nil {
+			return fmt.Errorf("failed to create workflows directory: %w", err)
+		}
+		return generators.GenerateGithubActions(cfg)
+	}
+}
+
+func printGeneratedFiles(ci string) {
+	switch ci {
+	case "gitlab":
+		fmt.Println(" - .gitlab-ci.yml")
+	case "bitbucket":
+		fmt.Println(" - bitbucket-pipelines.yml")
+	default:
+		fmt.Println(" - .github/workflows/security.yml")
+	}
+	fmt.Println(" - security-config.yml")
 }
 
 //

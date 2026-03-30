@@ -15,4 +15,5 @@ type InitConfig struct {
 	Tools             ToolsConfig
 	ExcludePaths      []string
 	FailOn            map[string]int
+	CIProvider        string // "github", "gitlab", "bitbucket"
 }
