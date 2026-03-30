@@ -35,3 +35,13 @@ notifications:
   pr_comment: true
   slack: false
   email: false
+
+# AI fix suggestions (opt-in)
+# Providers: ollama (local, default), openai, anthropic
+# For openai/anthropic set api_key here or via OPENAI_API_KEY / ANTHROPIC_API_KEY env vars
+# ai:
+#   enabled: false
+#   provider: "ollama"        # ollama | openai | anthropic
+#   model: "llama3"           # ollama model, or gpt-4o-mini, claude-haiku-4-5-20251001
+#   endpoint: "http://localhost:11434"  # ollama endpoint (optional)
+#   api_key: ""               # leave empty to use env var

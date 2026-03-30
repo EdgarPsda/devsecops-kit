@@ -9,15 +9,25 @@ import (
 
 // SecurityConfig represents the security-config.yml structure
 type SecurityConfig struct {
-	Version           string            `yaml:"version"`
-	Language          string            `yaml:"language"`
-	Framework         string            `yaml:"framework"`
-	SeverityThreshold string            `yaml:"severity_threshold"`
-	Tools             ToolsConfig       `yaml:"tools"`
-	ExcludePaths      []string          `yaml:"exclude_paths"`
-	FailOn            map[string]int    `yaml:"fail_on"`
-	Licenses          LicensesConfig    `yaml:"licenses"`
+	Version           string              `yaml:"version"`
+	Language          string              `yaml:"language"`
+	Framework         string              `yaml:"framework"`
+	SeverityThreshold string              `yaml:"severity_threshold"`
+	Tools             ToolsConfig         `yaml:"tools"`
+	ExcludePaths      []string            `yaml:"exclude_paths"`
+	FailOn            map[string]int      `yaml:"fail_on"`
+	Licenses          LicensesConfig      `yaml:"licenses"`
 	Notifications     NotificationsConfig `yaml:"notifications"`
+	AI                AIConfig            `yaml:"ai"`
+}
+
+// AIConfig holds AI fix suggestion settings
+type AIConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Provider string `yaml:"provider"` // "ollama", "openai", "anthropic"
+	Model    string `yaml:"model"`
+	Endpoint string `yaml:"endpoint"` // custom endpoint for ollama
+	APIKey   string `yaml:"api_key"`  // for openai/anthropic (prefer env vars)
 }
 
 // ToolsConfig represents the tools section

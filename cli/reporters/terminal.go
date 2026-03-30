@@ -187,6 +187,10 @@ func (tr *TerminalReporter) printFinding(finding scanners.Finding) {
 		fmt.Printf("     Rule: %s\n", colorGray(finding.RuleID))
 	}
 
+	if finding.AISuggestion != "" {
+		fmt.Printf("     %s %s\n", colorCyan("💡 Fix:"), colorGray(finding.AISuggestion))
+	}
+
 	fmt.Println()
 }
 
