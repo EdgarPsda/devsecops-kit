@@ -37,6 +37,7 @@ type ScanOptions struct {
 	EnableTrivy      bool
 	EnableTrivyImage bool
 	EnableLicenses   bool
+	EnableCheckov    bool
 	DockerImages     []string
 	ExcludePaths     []string
 	FailOnThresholds map[string]int

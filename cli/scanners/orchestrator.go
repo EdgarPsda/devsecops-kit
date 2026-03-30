@@ -29,8 +29,8 @@ func (o *Orchestrator) Run() (*ScanReport, error) {
 
 	// Track which scanners to run
 	var wg sync.WaitGroup
-	resultsChan := make(chan *ScanResult, 4)
-	errsChan := make(chan error, 4)
+	resultsChan := make(chan *ScanResult, 5)
+	errsChan := make(chan error, 5)
 
 	// Run Semgrep
 	if o.options.EnableSemgrep {
@@ -82,6 +82,20 @@ func (o *Orchestrator) Run() (*ScanReport, error) {
 			result, err := o.runLicenseScan()
 			if err != nil {
 				errsChan <- fmt.Errorf("license scan failed: %w", err)
+				return
+			}
+			resultsChan <- result
+		}()
+	}
+
+	// Run Checkov
+	if o.options.EnableCheckov {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result, err := o.runCheckov()
+			if err != nil {
+				errsChan <- fmt.Errorf("checkov scan failed: %w", err)
 				return
 			}
 			resultsChan <- result
@@ -174,6 +188,15 @@ func (o *Orchestrator) calculateBlockingCount(report *ScanReport) {
 		if threshold, exists := o.options.FailOnThresholds["license_violations"]; exists && threshold >= 0 {
 			if licenses.Summary.Total > threshold {
 				report.BlockingCount += licenses.Summary.Total - threshold
+			}
+		}
+	}
+
+	// Check Checkov threshold
+	if checkov, ok := report.Results["checkov"]; ok {
+		if threshold, exists := o.options.FailOnThresholds["checkov"]; exists && threshold >= 0 {
+			if checkov.Summary.Total > threshold {
+				report.BlockingCount += checkov.Summary.Total - threshold
 			}
 		}
 	}

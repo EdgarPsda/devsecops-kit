@@ -25,6 +25,7 @@ type ToolsConfig struct {
 	Semgrep  bool `yaml:"semgrep"`
 	Trivy    bool `yaml:"trivy"`
 	Gitleaks bool `yaml:"gitleaks"`
+	Checkov  bool `yaml:"checkov"`
 }
 
 // LicensesConfig represents the licenses section
@@ -113,6 +114,7 @@ func setConfigDefaults(config *SecurityConfig) {
 		"trivy_medium":       -1,
 		"trivy_low":          -1,
 		"license_violations": -1,
+		"checkov":            -1,
 	}
 
 	for key, defaultValue := range defaults {
@@ -126,7 +128,7 @@ func setConfigDefaults(config *SecurityConfig) {
 		config.SeverityThreshold = "high"
 	}
 
-	// Set default tools if all are false
+	// Set default tools if all core tools are false (Checkov is opt-in, excluded from this check)
 	if !config.Tools.Semgrep && !config.Tools.Gitleaks && !config.Tools.Trivy {
 		config.Tools.Semgrep = true
 		config.Tools.Gitleaks = true
