@@ -10,7 +10,7 @@ import (
 
 var (
 	// version is set at build time via -ldflags, default for dev builds.
-	version = "0.1.0"
+	version = "0.6.0"
 
 	rootCmd = &cobra.Command{
 		Use:   "devsecops",
