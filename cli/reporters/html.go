@@ -94,6 +94,11 @@ func (hr *HTMLReporter) generateHTML() string {
 			color: #721c24;
 		}
 
+		.status-warn {
+			background: #fff3cd;
+			color: #856404;
+		}
+
 		.summary {
 			display: grid;
 			grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -375,24 +380,32 @@ func (hr *HTMLReporter) generateHTML() string {
 
 // getStatusIcon returns the emoji for the status
 func (hr *HTMLReporter) getStatusIcon() string {
-	if hr.report.Status == "PASS" {
+	switch hr.report.Status {
+	case "PASS":
 		return "✅"
+	case "WARN":
+		return "⚠️"
+	default:
+		return "❌"
 	}
-	return "❌"
 }
 
 // getStatusClass returns the CSS class for the status
 func (hr *HTMLReporter) getStatusClass() string {
-	if hr.report.Status == "PASS" {
+	switch hr.report.Status {
+	case "PASS":
 		return "pass"
+	case "WARN":
+		return "warn"
+	default:
+		return "fail"
 	}
-	return "fail"
 }
 
 // getBlockingCountHTML returns HTML for blocking count if applicable
 func (hr *HTMLReporter) getBlockingCountHTML() string {
 	if hr.report.BlockingCount > 0 {
-		return fmt.Sprintf(`<p style="color: #721c24; margin-top: 10px;"><strong>⚠️ %d issue(s) exceed configured thresholds</strong></p>`, hr.report.BlockingCount)
+		return fmt.Sprintf(`<p style="color: #721c24; margin-top: 10px;"><strong>⚠️ %d blocking finding(s) detected</strong></p>`, hr.report.BlockingCount)
 	}
 	return ""
 }

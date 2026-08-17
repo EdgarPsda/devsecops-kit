@@ -83,9 +83,17 @@ func (c *Client) EnrichFindings(findings []scanners.Finding) {
 	}
 }
 
+// Complete sends a prompt to the configured AI provider and returns the raw response.
+func (c *Client) Complete(prompt string) (string, error) {
+	return c.complete(prompt)
+}
+
 func (c *Client) getSuggestion(f *scanners.Finding) (string, error) {
 	prompt := buildPrompt(f)
+	return c.complete(prompt)
+}
 
+func (c *Client) complete(prompt string) (string, error) {
 	switch c.cfg.Provider {
 	case "openai":
 		return c.callOpenAI(prompt)

@@ -52,16 +52,13 @@ func (tr *TerminalReporter) printSummary() {
 	fmt.Println(statusColor(fmt.Sprintf("%s Status: %s", statusIcon, tr.report.Status)))
 
 	if tr.report.BlockingCount > 0 {
-		fmt.Println(colorRed(fmt.Sprintf("   ⚠️  %d issue(s) exceed thresholds", tr.report.BlockingCount)))
+		fmt.Println(colorRed(fmt.Sprintf("   ⚠️  %d blocking finding(s) detected", tr.report.BlockingCount)))
 	}
 
 	fmt.Println()
 	fmt.Println(colorCyan("Summary by Tool:"))
 
-	// Sort tools for consistent output
-	tools := []string{"gitleaks", "semgrep", "trivy"}
-
-	for _, tool := range tools {
+	for _, tool := range sortedResultTools(tr.report.Results) {
 		if result, ok := tr.report.Results[tool]; ok {
 			tr.printToolSummary(tool, result)
 		}
@@ -121,10 +118,7 @@ func (tr *TerminalReporter) printFindings() {
 		findingsByTool[finding.Tool] = append(findingsByTool[finding.Tool], finding)
 	}
 
-	// Sort tools
-	tools := []string{"gitleaks", "semgrep", "trivy"}
-
-	for _, tool := range tools {
+	for _, tool := range sortedFindingTools(findingsByTool) {
 		findings, ok := findingsByTool[tool]
 		if !ok || len(findings) == 0 {
 			continue
@@ -198,14 +192,39 @@ func (tr *TerminalReporter) printFinding(finding scanners.Finding) {
 func (tr *TerminalReporter) printFooter() {
 	fmt.Println(colorCyan("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"))
 
-	if tr.report.BlockingCount > 0 {
-		fmt.Println(colorRed("❌ Scan FAILED - Review findings above and remediate before proceeding"))
-	} else {
-		fmt.Println(colorGreen("✅ Scan PASSED - No blocking issues detected"))
+	switch tr.report.Status {
+	case "FAIL":
+		fmt.Println(colorRed("❌ Scan FAILED"))
+		fmt.Println(colorRed("Blocking security findings detected."))
+	case "WARN":
+		fmt.Println(colorYellow("⚠ Scan completed with warnings"))
+		fmt.Println(colorYellow(fmt.Sprintf("%d finding(s) detected.", len(tr.report.AllFindings))))
+	case "PASS":
+		fmt.Println(colorGreen("✅ Scan PASSED - No findings detected"))
+	default:
+		fmt.Println(colorYellow("⚠ Scan completed with unknown status"))
 	}
 
 	fmt.Println(colorCyan("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"))
 	fmt.Println()
+}
+
+func sortedResultTools(results map[string]*scanners.ScanResult) []string {
+	tools := make([]string, 0, len(results))
+	for tool := range results {
+		tools = append(tools, tool)
+	}
+	sort.Strings(tools)
+	return tools
+}
+
+func sortedFindingTools(findings map[string][]scanners.Finding) []string {
+	tools := make([]string, 0, len(findings))
+	for tool := range findings {
+		tools = append(tools, tool)
+	}
+	sort.Strings(tools)
+	return tools
 }
 
 // Color functions for terminal output

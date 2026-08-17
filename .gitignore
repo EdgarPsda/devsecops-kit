@@ -1,5 +1,6 @@
 # Binaries
 devsecops
+devsecops.exe
 devsecops-*
 !demo/devsecops-*
 

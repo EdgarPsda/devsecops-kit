@@ -2,11 +2,11 @@ package scanners
 
 // ScanResult represents the output from a single scanner run
 type ScanResult struct {
-	Tool       string        `json:"tool"`       // "semgrep", "gitleaks", "trivy"
-	Status     string        `json:"status"`     // "success", "error", "no_findings"
-	Error      error         `json:"-"`
-	Findings   []Finding     `json:"findings"`
-	Summary    FindingSummary `json:"summary"`
+	Tool     string         `json:"tool"`   // "semgrep", "gitleaks", "trivy"
+	Status   string         `json:"status"` // "success", "error", "no_findings"
+	Error    error          `json:"-"`
+	Findings []Finding      `json:"findings"`
+	Summary  FindingSummary `json:"summary"`
 }
 
 // Finding represents a single security finding
@@ -15,6 +15,7 @@ type Finding struct {
 	Line         int    `json:"line"`
 	Column       int    `json:"column,omitempty"`
 	Severity     string `json:"severity"` // "CRITICAL", "HIGH", "MEDIUM", "LOW", or rule ID
+	Blocking     bool   `json:"blocking,omitempty"`
 	Message      string `json:"message"`
 	RuleID       string `json:"rule_id,omitempty"`
 	Tool         string `json:"tool"`
@@ -48,9 +49,9 @@ type ScanOptions struct {
 
 // ScanReport aggregates all scan results
 type ScanReport struct {
-	Timestamp   string                        `json:"timestamp"`
-	Status      string                        `json:"status"` // "PASS" or "FAIL"
-	BlockingCount int                         `json:"blocking_count"`
-	Results     map[string]*ScanResult        `json:"results"` // key: tool name
-	AllFindings []Finding                     `json:"all_findings"`
+	Timestamp     string                 `json:"timestamp"`
+	Status        string                 `json:"status"` // "PASS", "WARN", or "FAIL"
+	BlockingCount int                    `json:"blocking_count"`
+	Results       map[string]*ScanResult `json:"results"` // key: tool name
+	AllFindings   []Finding              `json:"all_findings"`
 }

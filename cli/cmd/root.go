@@ -9,8 +9,10 @@ import (
 )
 
 var (
-	// version is set at build time via -ldflags, default for dev builds.
-	version = "0.1.0"
+	// Build metadata is set at build time via -ldflags.
+	version = "development"
+	commit  = "none"
+	date    = "unknown"
 
 	rootCmd = &cobra.Command{
 		Use:   "devsecops",
@@ -37,7 +39,21 @@ func init() {
 		Use:   "version",
 		Short: "Print the version number",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(os.Stdout, "DevSecOps Kit version %s\n", version)
+			printVersion()
 		},
 	})
+}
+
+func printVersion() {
+	fmt.Fprintln(os.Stdout, "DevSecOps Kit")
+
+	if commit == "none" && date == "unknown" {
+		fmt.Fprintf(os.Stdout, "Version: %s\n", version)
+		return
+	}
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintf(os.Stdout, "Version : %s\n", version)
+	fmt.Fprintf(os.Stdout, "Commit  : %s\n", commit)
+	fmt.Fprintf(os.Stdout, "Built   : %s\n", date)
 }

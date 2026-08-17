@@ -170,6 +170,28 @@ cd devsecops-kit
 go build -o devsecops ./cmd/devsecops/
 ```
 
+For release-style builds, inject Git metadata with ldflags:
+
+```bash
+go build -buildvcs=false -ldflags "\
+  -X github.com/edgarpsda/devsecops-kit/cli/cmd.version=$(git describe --tags --always) \
+  -X github.com/edgarpsda/devsecops-kit/cli/cmd.commit=$(git rev-parse --short HEAD) \
+  -X github.com/edgarpsda/devsecops-kit/cli/cmd.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -o devsecops ./cmd/devsecops/
+```
+
+Or use the included build helpers:
+
+```bash
+make build
+```
+
+On Windows PowerShell:
+
+```powershell
+.\build.ps1
+```
+
 ### Scanner dependencies
 
 The CLI orchestrates external tools that must be installed separately:
@@ -180,6 +202,7 @@ The CLI orchestrates external tools that must be installed separately:
 | Gitleaks | [releases page](https://github.com/gitleaks/gitleaks/releases) |
 | Trivy | [install script](https://aquasecurity.github.io/trivy/latest/getting-started/installation/) |
 | Checkov | `pip install checkov` (optional) |
+| Snyk | [Snyk CLI](https://docs.snyk.io/snyk-cli/install-or-update-the-snyk-cli) (optional, for auto remediation) |
 | Ollama | [ollama.com](https://ollama.com) (optional, for AI suggestions) |
 
 Run `devsecops diagnose` to check which tools are available.
@@ -209,7 +232,7 @@ devsecops diagnose
 | **0.4.1** | HTML reports, progress UI | ✅ Released |
 | **0.5.0** | Python/Java detection, SBOM, SARIF output, license compliance | ✅ Released |
 | **0.6.0** | Multi-CI (GitLab/Bitbucket), IaC scanning (Checkov), AI fix suggestions | ✅ Released |
-| **0.7.0** | Vulnerability trending, EPSS/KEV scoring, TruffleHog integration | 📋 Planned |
+| **0.7.0** | Security Auto Remediation MVP, Snyk remediation provider, Semgrep hardening, Git metadata builds | ✅ Released |
 
 ## Contributing
 
