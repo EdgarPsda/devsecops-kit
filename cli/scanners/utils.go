@@ -1,24 +1,10 @@
 package scanners
 
-import (
-	"strings"
-)
+import scanreport "github.com/edgarpsda/devsecops-kit/internal/report"
 
 // normalizeSeverity converts severity strings to standard format
 func normalizeSeverity(severity string) string {
-	s := strings.ToUpper(severity)
-	switch s {
-	case "CRITICAL", "CRITICAL,HIGH", "FATAL":
-		return "CRITICAL"
-	case "HIGH":
-		return "HIGH"
-	case "MEDIUM", "MODERATE":
-		return "MEDIUM"
-	case "LOW", "INFO":
-		return "LOW"
-	default:
-		return "MEDIUM"
-	}
+	return scanreport.NormalizeSeverity(severity)
 }
 
 // LoadConfigFromFile loads security configuration from security-config.yml

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	scanreport "github.com/edgarpsda/devsecops-kit/internal/report"
 )
 
 // Orchestrator coordinates running multiple security scanners
@@ -123,81 +125,29 @@ func (o *Orchestrator) Run() (*ScanReport, error) {
 		return nil, fmt.Errorf("all scanners failed: %v", errors)
 	}
 
-	// Calculate blocking count based on thresholds
-	o.calculateBlockingCount(report)
-
-	// Set overall status
-	if report.BlockingCount > 0 {
-		report.Status = "FAIL"
-	} else {
-		report.Status = "PASS"
-	}
+	o.evaluateStatus(report, len(errors) > 0)
 
 	return report, nil
 }
 
-// calculateBlockingCount determines how many findings exceed thresholds
-func (o *Orchestrator) calculateBlockingCount(report *ScanReport) {
-	report.BlockingCount = 0
-
-	// Check Gitleaks threshold
-	if gitleaks, ok := report.Results["gitleaks"]; ok {
-		if threshold, exists := o.options.FailOnThresholds["gitleaks"]; exists && threshold >= 0 {
-			if gitleaks.Summary.Total > threshold {
-				report.BlockingCount += gitleaks.Summary.Total - threshold
-			}
-		}
+func (o *Orchestrator) evaluateStatus(report *ScanReport, hasScannerErrors bool) {
+	findings := make([]scanreport.Finding, 0, len(report.AllFindings))
+	for _, finding := range report.AllFindings {
+		findings = append(findings, scanreport.Finding{
+			Tool:     finding.Tool,
+			Severity: finding.Severity,
+			Blocking: finding.Blocking,
+			Rule:     finding.RuleID,
+			File:     finding.File,
+			Line:     finding.Line,
+		})
 	}
 
-	// Check Semgrep threshold
-	if semgrep, ok := report.Results["semgrep"]; ok {
-		if threshold, exists := o.options.FailOnThresholds["semgrep"]; exists && threshold >= 0 {
-			if semgrep.Summary.Total > threshold {
-				report.BlockingCount += semgrep.Summary.Total - threshold
-			}
-		}
-	}
+	evaluation := scanreport.Evaluate(findings)
+	report.Status = evaluation.Status
+	report.BlockingCount = evaluation.BlockingCount
 
-	// Check Trivy thresholds (by severity)
-	if trivy, ok := report.Results["trivy"]; ok {
-		severities := map[string]string{
-			"critical": "trivy_critical",
-			"high":     "trivy_high",
-			"medium":   "trivy_medium",
-			"low":      "trivy_low",
-		}
-
-		counts := map[string]int{
-			"critical": trivy.Summary.Critical,
-			"high":     trivy.Summary.High,
-			"medium":   trivy.Summary.Medium,
-			"low":      trivy.Summary.Low,
-		}
-
-		for severity, configKey := range severities {
-			if threshold, exists := o.options.FailOnThresholds[configKey]; exists && threshold >= 0 {
-				if count, ok := counts[severity]; ok && count > threshold {
-					report.BlockingCount += count - threshold
-				}
-			}
-		}
-	}
-
-	// Check License violations threshold
-	if licenses, ok := report.Results["licenses"]; ok {
-		if threshold, exists := o.options.FailOnThresholds["license_violations"]; exists && threshold >= 0 {
-			if licenses.Summary.Total > threshold {
-				report.BlockingCount += licenses.Summary.Total - threshold
-			}
-		}
-	}
-
-	// Check Checkov threshold
-	if checkov, ok := report.Results["checkov"]; ok {
-		if threshold, exists := o.options.FailOnThresholds["checkov"]; exists && threshold >= 0 {
-			if checkov.Summary.Total > threshold {
-				report.BlockingCount += checkov.Summary.Total - threshold
-			}
-		}
+	if hasScannerErrors && report.Status == scanreport.StatusPass {
+		report.Status = scanreport.StatusFail
 	}
 }

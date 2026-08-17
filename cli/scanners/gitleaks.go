@@ -85,6 +85,7 @@ func (o *Orchestrator) runGitleaks() (*ScanResult, error) {
 			File:     leak.File,
 			Line:     leak.StartLine,
 			Severity: "CRITICAL",
+			Blocking: true,
 			Message:  fmt.Sprintf("Secret detected: %s", leak.RuleID),
 			RuleID:   leak.RuleID,
 			Tool:     "gitleaks",
