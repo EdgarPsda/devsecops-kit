@@ -87,6 +87,25 @@ export OPENAI_API_KEY=sk-...
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
+### Security Auto Remediation
+
+Run a local remediation flow for HIGH and CRITICAL dependency findings:
+
+```bash
+devsecops remediate --provider snyk
+```
+
+The current MVP supports Snyk Open Source findings and Maven projects. It creates a local remediation branch, applies safe dependency updates when possible, runs project validation, and re-runs Snyk to confirm which findings were fixed.
+
+The command does not commit, push, or open pull requests automatically. Changes are left in the remediation branch for review.
+
+Requirements:
+
+- `snyk` CLI installed and authenticated
+- clean Git working tree
+- project tests passing before remediation starts
+- AI enabled in `security-config.yml` for cases that need AI-generated patches
+
 ### Git Hooks
 
 Block commits or warn on push when security issues exceed thresholds:
@@ -150,6 +169,7 @@ notifications:
 ```bash
 devsecops detect      # Show detected language and framework
 devsecops diagnose    # Check installed scanners and environment
+devsecops remediate   # Run local security auto remediation
 devsecops version     # Show version
 devsecops init --wizard  # Interactive guided setup
 ```
@@ -222,17 +242,6 @@ devsecops scan
 # 4. Check environment
 devsecops diagnose
 ```
-
-## Roadmap
-
-| Version | Features | Status |
-|---------|----------|--------|
-| **0.3.0** | Fail gates, exclude paths, Docker detection, PR comments | ✅ Released |
-| **0.4.0** | Local scans, git hooks, terminal UI, YAML config | ✅ Released |
-| **0.4.1** | HTML reports, progress UI | ✅ Released |
-| **0.5.0** | Python/Java detection, SBOM, SARIF output, license compliance | ✅ Released |
-| **0.6.0** | Multi-CI (GitLab/Bitbucket), IaC scanning (Checkov), AI fix suggestions | ✅ Released |
-| **0.7.0** | Security Auto Remediation MVP, Snyk remediation provider, Semgrep hardening, Git metadata builds | ✅ Released |
 
 ## Contributing
 
