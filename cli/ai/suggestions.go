@@ -17,7 +17,7 @@ type Config struct {
 	Enabled  bool
 	Provider string // "ollama", "openai", "anthropic"
 	Model    string
-	Endpoint string // for ollama; defaults to http://localhost:11434
+	Endpoint string // optional provider endpoint or approved AI gateway
 	APIKey   string // for openai/anthropic; reads from env if empty
 }
 
@@ -30,11 +30,9 @@ type Client struct {
 
 // NewClient creates an AI client with the given config
 func NewClient(cfg Config) *Client {
-	endpoint := cfg.Endpoint
-	if endpoint == "" {
-		endpoint = "http://localhost:11434"
+	if cfg.Provider == "ollama" && cfg.Endpoint == "" {
+		cfg.Endpoint = "http://localhost:11434"
 	}
-	cfg.Endpoint = endpoint
 
 	model := cfg.Model
 	if model == "" {
@@ -112,6 +110,28 @@ func buildPrompt(f *scanners.Finding) string {
 	)
 }
 
+func (c *Client) openAIEndpoint() string {
+	if c.cfg.Endpoint == "" {
+		return "https://api.openai.com/v1/chat/completions"
+	}
+	return joinEndpoint(c.cfg.Endpoint, "/chat/completions")
+}
+
+func (c *Client) anthropicEndpoint() string {
+	if c.cfg.Endpoint == "" {
+		return "https://api.anthropic.com/v1/messages"
+	}
+	return joinEndpoint(c.cfg.Endpoint, "/messages")
+}
+
+func joinEndpoint(base, path string) string {
+	base = strings.TrimRight(base, "/")
+	if strings.HasSuffix(base, path) {
+		return base
+	}
+	return base + path
+}
+
 // --- Ollama ---
 
 type ollamaRequest struct {
@@ -132,7 +152,7 @@ func (c *Client) callOllama(prompt string) (string, error) {
 		Stream: false,
 	})
 
-	resp, err := c.http.Post(c.cfg.Endpoint+"/api/generate", "application/json", bytes.NewReader(body))
+	resp, err := c.http.Post(joinEndpoint(c.cfg.Endpoint, "/api/generate"), "application/json", bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("ollama request failed: %w", err)
 	}
@@ -178,7 +198,7 @@ func (c *Client) callOpenAI(prompt string) (string, error) {
 		},
 	})
 
-	req, _ := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(body))
+	req, _ := http.NewRequest("POST", c.openAIEndpoint(), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
 
@@ -234,7 +254,7 @@ func (c *Client) callAnthropic(prompt string) (string, error) {
 		},
 	})
 
-	req, _ := http.NewRequest("POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(body))
+	req, _ := http.NewRequest("POST", c.anthropicEndpoint(), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", c.cfg.APIKey)
 	req.Header.Set("anthropic-version", "2023-06-01")

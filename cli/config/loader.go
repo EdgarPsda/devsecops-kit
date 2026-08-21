@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -18,16 +19,49 @@ type SecurityConfig struct {
 	FailOn            map[string]int      `yaml:"fail_on"`
 	Licenses          LicensesConfig      `yaml:"licenses"`
 	Notifications     NotificationsConfig `yaml:"notifications"`
+	Policy            PolicyConfig        `yaml:"policy"`
 	AI                AIConfig            `yaml:"ai"`
+}
+
+// PolicyConfig holds optional enterprise policy settings.
+type PolicyConfig struct {
+	Profile string    `yaml:"profile"`
+	SLA     SLAConfig `yaml:"sla"`
+}
+
+// SLAConfig holds optional age-based vulnerability gates.
+type SLAConfig struct {
+	Enabled bool           `yaml:"enabled"`
+	Warn    map[string]int `yaml:"warn"`
+	Fail    map[string]int `yaml:"fail"`
 }
 
 // AIConfig holds AI fix suggestion settings
 type AIConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	Provider string `yaml:"provider"` // "ollama", "openai", "anthropic"
-	Model    string `yaml:"model"`
-	Endpoint string `yaml:"endpoint"` // custom endpoint for ollama
-	APIKey   string `yaml:"api_key"`  // for openai/anthropic (prefer env vars)
+	Enabled                 bool     `yaml:"enabled"`
+	Provider                string   `yaml:"provider"` // "ollama", "openai", "anthropic"
+	Model                   string   `yaml:"model"`
+	Endpoint                string   `yaml:"endpoint"`                  // custom endpoint or approved gateway
+	APIKey                  string   `yaml:"api_key"`                   // for openai/anthropic (prefer env vars)
+	RequireApprovedProvider bool     `yaml:"require_approved_provider"` // fail if provider is not allowlisted
+	AllowedProviders        []string `yaml:"allowed_providers"`         // optional provider allowlist
+}
+
+// ValidateAIConfig checks optional governance controls for AI usage.
+func ValidateAIConfig(ai AIConfig) error {
+	if !ai.Enabled || !ai.RequireApprovedProvider {
+		return nil
+	}
+	if len(ai.AllowedProviders) == 0 {
+		return fmt.Errorf("ai.require_approved_provider=true requires ai.allowed_providers")
+	}
+	provider := strings.ToLower(strings.TrimSpace(ai.Provider))
+	for _, allowed := range ai.AllowedProviders {
+		if provider == strings.ToLower(strings.TrimSpace(allowed)) {
+			return nil
+		}
+	}
+	return fmt.Errorf("AI provider %q is not in ai.allowed_providers", ai.Provider)
 }
 
 // ToolsConfig represents the tools section
@@ -93,6 +127,14 @@ func getDefaultConfig() *SecurityConfig {
 			Trivy:    true,
 		},
 		ExcludePaths: []string{},
+		Policy: PolicyConfig{
+			Profile: "default",
+			SLA: SLAConfig{
+				Enabled: false,
+				Warn:    map[string]int{},
+				Fail:    map[string]int{},
+			},
+		},
 		FailOn: map[string]int{
 			"gitleaks":       0,
 			"semgrep":        10,
@@ -131,6 +173,19 @@ func setConfigDefaults(config *SecurityConfig) {
 		if _, exists := config.FailOn[key]; !exists {
 			config.FailOn[key] = defaultValue
 		}
+	}
+	// Ensure optional policy maps exist when policy is configured.
+	if config.Policy.Profile == "" {
+		config.Policy.Profile = "default"
+	}
+	if config.Policy.SLA.Warn == nil {
+		config.Policy.SLA.Warn = make(map[string]int)
+	}
+	if config.Policy.SLA.Fail == nil {
+		config.Policy.SLA.Fail = make(map[string]int)
+	}
+	if config.AI.AllowedProviders == nil {
+		config.AI.AllowedProviders = []string{}
 	}
 
 	// Set default threshold if not specified

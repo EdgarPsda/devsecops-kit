@@ -69,6 +69,9 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 	if !secConfig.AI.Enabled {
 		return fmt.Errorf("Snyk remediation requires ai.enabled=true in %s", remediateConfigPath)
 	}
+	if err := config.ValidateAIConfig(secConfig.AI); err != nil {
+		return err
+	}
 
 	aiClient := ai.NewClient(ai.Config{
 		Enabled:  true,
@@ -77,38 +80,66 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 		Endpoint: secConfig.AI.Endpoint,
 		APIKey:   aiAPIKey(secConfig),
 	})
+	audit := newRemediationAudit(dir, "snyk", "snyk", secConfig, projectInfo)
 
 	fmt.Println("🔍 Running Snyk scan...")
 	findings, err := runSnykScan(dir)
 	if err != nil {
+		audit.complete("failed", remediationAuditSummary{})
+		audit.record(remediationAuditEvent{Type: "scan", Status: "failed", Reason: err.Error()})
+		writeRemediationAudit(dir, audit)
 		return err
 	}
 	targets := snykHighCritical(findings)
+	audit.Summary.Scanned = len(findings)
+	audit.record(remediationAuditEvent{Type: "scan", Status: "completed", Action: "snyk test", BeforeFindings: len(targets)})
 	if len(targets) == 0 {
 		fmt.Println("✅ No HIGH or CRITICAL Snyk vulnerabilities found. Nothing to remediate.")
+		audit.complete("passed", remediationAuditSummary{Scanned: len(findings)})
+		writeRemediationAudit(dir, audit)
 		return nil
 	}
 
 	originalBranch, err := gitOutput(dir, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
+		audit.complete("failed", remediationAuditSummary{Scanned: len(findings)})
+		audit.record(remediationAuditEvent{Type: "git", Status: "failed", Action: "detect current branch", Reason: err.Error()})
+		writeRemediationAudit(dir, audit)
 		return fmt.Errorf("failed to detect current git branch: %w", err)
 	}
+	audit.OriginalBranch = originalBranch
 
 	if dirty, err := gitHasChanges(dir); err != nil {
+		audit.complete("failed", remediationAuditSummary{Scanned: len(findings)})
+		audit.record(remediationAuditEvent{Type: "git", Status: "failed", Action: "inspect working tree", Reason: err.Error()})
+		writeRemediationAudit(dir, audit)
 		return err
 	} else if dirty {
-		return fmt.Errorf("working tree has existing changes; commit, stash, or clean them before auto remediation")
+		reason := "working tree has existing changes; commit, stash, or clean them before auto remediation"
+		audit.complete("failed", remediationAuditSummary{Scanned: len(findings)})
+		audit.record(remediationAuditEvent{Type: "git", Status: "failed", Action: "inspect working tree", Reason: reason})
+		writeRemediationAudit(dir, audit)
+		return fmt.Errorf("%s", reason)
 	}
 
 	fmt.Println("🧪 Running baseline project validation...")
 	if err := runProjectTests(dir, projectInfo); err != nil {
+		audit.complete("failed", remediationAuditSummary{Scanned: len(findings)})
+		audit.record(remediationAuditEvent{Type: "validation", Status: "failed", Action: "baseline tests", Reason: err.Error()})
+		writeRemediationAudit(dir, audit)
 		return fmt.Errorf("baseline validation failed; fix the project tests before auto remediation:\n%w", err)
 	}
+	audit.record(remediationAuditEvent{Type: "validation", Status: "passed", Action: "baseline tests"})
 
 	branchName := "security/remediation-" + time.Now().Format("20060102-150405")
 	if _, err := gitOutput(dir, "checkout", "-b", branchName); err != nil {
+		audit.complete("failed", remediationAuditSummary{Scanned: len(findings)})
+		audit.record(remediationAuditEvent{Type: "git", Status: "failed", Action: "create remediation branch", Reason: err.Error()})
+		writeRemediationAudit(dir, audit)
 		return fmt.Errorf("failed to create remediation branch: %w", err)
 	}
+	audit.Branch = branchName
+	audit.record(remediationAuditEvent{Type: "git", Status: "completed", Action: "create remediation branch"})
 
 	modified := make(map[string]bool)
 	fixed := 0
@@ -119,6 +150,14 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 	for _, group := range groups {
 		if !snykGroupStillPresent(group, currentFindings) {
 			fmt.Printf("\n⏭ Skipping %s in %s; already resolved by an earlier change.\n", group.PackageName, group.ManifestFile)
+			audit.record(remediationAuditEvent{
+				Type:       "remediation_group",
+				Status:     "skipped",
+				Action:     "already resolved by earlier change",
+				Package:    group.PackageName,
+				Manifest:   group.ManifestFile,
+				FindingIDs: snykGroupFindingIDs(group),
+			})
 			continue
 		}
 
@@ -129,23 +168,60 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 		contextText, err := snykManifestContext(dir, finding)
 		if err != nil {
 			failed += beforeCount
+			audit.record(remediationAuditEvent{
+				Type:           "remediation_group",
+				Status:         "failed",
+				Action:         "read manifest context",
+				Package:        group.PackageName,
+				Manifest:       group.ManifestFile,
+				FindingIDs:     snykGroupFindingIDs(group),
+				BeforeFindings: beforeCount,
+				Reason:         err.Error(),
+			})
 			fmt.Printf("❌ Failed to read manifest context: %v\n", err)
 			continue
 		}
 
-		backups, err := applySnykMavenFallback(dir, group)
+		method := "dependency_fallback"
+		var aiAudit *remediationAuditAITrace
+		backups, err := applySnykDependencyFallback(dir, group)
 		if err != nil {
-			fmt.Printf("⚠ Maven fallback was not available, trying AI patch: %v\n", err)
+			fmt.Printf("⚠ Deterministic dependency fallback was not available, trying AI patch: %v\n", err)
+			method = "ai_patch"
 			prompt := buildSnykGroupRemediationPrompt(projectInfo, group, contextText)
 			response, aiErr := aiClient.Complete(prompt)
 			if aiErr != nil {
 				failed += beforeCount
+				audit.record(remediationAuditEvent{
+					Type:           "remediation_group",
+					Status:         "failed",
+					Action:         "generate AI patch",
+					Method:         method,
+					Package:        group.PackageName,
+					Manifest:       group.ManifestFile,
+					FindingIDs:     snykGroupFindingIDs(group),
+					BeforeFindings: beforeCount,
+					Reason:         aiErr.Error(),
+				})
 				fmt.Printf("❌ AI provider failed: %v\n", aiErr)
 				continue
 			}
+			aiAudit = aiTrace(secConfig.AI.Provider, secConfig.AI.Model, prompt, response)
 			backups, err = applyAIPatchWithRepair(dir, aiClient, prompt, response)
 			if err != nil {
 				failed += beforeCount
+				audit.record(remediationAuditEvent{
+					Type:           "remediation_group",
+					Status:         "failed",
+					Action:         "apply patch",
+					Method:         method,
+					Package:        group.PackageName,
+					Manifest:       group.ManifestFile,
+					FindingIDs:     snykGroupFindingIDs(group),
+					BeforeFindings: beforeCount,
+					Reason:         err.Error(),
+					AI:             aiAudit,
+				})
 				fmt.Printf("❌ Failed to apply patch: %v\n", err)
 				continue
 			}
@@ -155,6 +231,18 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 		if err != nil {
 			_ = restoreBackups(backups)
 			failed += beforeCount
+			audit.record(remediationAuditEvent{
+				Type:           "remediation_group",
+				Status:         "failed",
+				Action:         "detect modified files",
+				Method:         method,
+				Package:        group.PackageName,
+				Manifest:       group.ManifestFile,
+				FindingIDs:     snykGroupFindingIDs(group),
+				BeforeFindings: beforeCount,
+				Reason:         err.Error(),
+				AI:             aiAudit,
+			})
 			fmt.Printf("❌ Failed to detect modified files: %v\n", err)
 			continue
 		}
@@ -163,6 +251,19 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 		if err := runValidationForFiles(dir, projectInfo, modifiedFiles); err != nil {
 			_ = restoreBackups(backups)
 			failed += beforeCount
+			audit.record(remediationAuditEvent{
+				Type:           "validation",
+				Status:         "failed",
+				Action:         "project validation",
+				Method:         method,
+				Package:        group.PackageName,
+				Manifest:       group.ManifestFile,
+				FindingIDs:     snykGroupFindingIDs(group),
+				BeforeFindings: beforeCount,
+				ModifiedFiles:  modifiedFiles,
+				Reason:         err.Error(),
+				AI:             aiAudit,
+			})
 			fmt.Printf("❌ Build/tests failed. Changes restored: %v\n", err)
 			continue
 		}
@@ -172,6 +273,19 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 		if err != nil {
 			_ = restoreBackups(backups)
 			failed += beforeCount
+			audit.record(remediationAuditEvent{
+				Type:           "rescan",
+				Status:         "failed",
+				Action:         "snyk test",
+				Method:         method,
+				Package:        group.PackageName,
+				Manifest:       group.ManifestFile,
+				FindingIDs:     snykGroupFindingIDs(group),
+				BeforeFindings: beforeCount,
+				ModifiedFiles:  modifiedFiles,
+				Reason:         err.Error(),
+				AI:             aiAudit,
+			})
 			fmt.Printf("❌ Snyk re-scan failed. Changes restored: %v\n", err)
 			continue
 		}
@@ -183,6 +297,20 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 			if resolved == 0 {
 				_ = restoreBackups(backups)
 				failed += beforeCount
+				audit.record(remediationAuditEvent{
+					Type:           "remediation_group",
+					Status:         "failed",
+					Action:         "verify remediation",
+					Method:         method,
+					Package:        group.PackageName,
+					Manifest:       group.ManifestFile,
+					FindingIDs:     snykGroupFindingIDs(group),
+					BeforeFindings: beforeCount,
+					Remaining:      remainingInGroup,
+					ModifiedFiles:  modifiedFiles,
+					Reason:         "finding still present after remediation",
+					AI:             aiAudit,
+				})
 				fmt.Printf("❌ %d finding(s) still present for %s. Changes restored.\n", remainingInGroup, group.PackageName)
 				continue
 			}
@@ -191,6 +319,20 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 			for _, file := range modifiedFiles {
 				modified[file] = true
 			}
+			audit.record(remediationAuditEvent{
+				Type:           "remediation_group",
+				Status:         "partial",
+				Action:         "verify remediation",
+				Method:         method,
+				Package:        group.PackageName,
+				Manifest:       group.ManifestFile,
+				FindingIDs:     snykGroupFindingIDs(group),
+				BeforeFindings: beforeCount,
+				Resolved:       resolved,
+				Remaining:      remainingInGroup,
+				ModifiedFiles:  modifiedFiles,
+				AI:             aiAudit,
+			})
 			fmt.Printf("⚠ Fixed %d finding(s) for %s; %d remain.\n", resolved, group.PackageName, remainingInGroup)
 			continue
 		}
@@ -199,6 +341,19 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 		for _, file := range modifiedFiles {
 			modified[file] = true
 		}
+		audit.record(remediationAuditEvent{
+			Type:           "remediation_group",
+			Status:         "fixed",
+			Action:         "verify remediation",
+			Method:         method,
+			Package:        group.PackageName,
+			Manifest:       group.ManifestFile,
+			FindingIDs:     snykGroupFindingIDs(group),
+			BeforeFindings: beforeCount,
+			Resolved:       resolved,
+			ModifiedFiles:  modifiedFiles,
+			AI:             aiAudit,
+		})
 		fmt.Printf("✅ Fixed %d finding(s) for %s.\n", resolved, group.PackageName)
 	}
 
@@ -210,6 +365,9 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 			fixed = 0
 		}
 		failed = remaining
+		audit.record(remediationAuditEvent{Type: "rescan", Status: "completed", Action: "final snyk test", Remaining: remaining})
+	} else {
+		audit.record(remediationAuditEvent{Type: "rescan", Status: "failed", Action: "final snyk test", Reason: err.Error()})
 	}
 
 	finalBranch := branchName
@@ -219,7 +377,18 @@ func runSnykRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 		finalBranch = "(deleted - no successful fixes)"
 	}
 
-	printRemediationSummary(len(findings), fixed, failed, sortedMapKeys(modified), remaining, finalBranch)
+	modifiedFiles := sortedMapKeys(modified)
+	audit.Branch = finalBranch
+	audit.complete("completed", remediationAuditSummary{
+		Scanned:       len(findings),
+		Fixed:         fixed,
+		Failed:        failed,
+		Remaining:     remaining,
+		ModifiedFiles: modifiedFiles,
+	})
+	writeRemediationAudit(dir, audit)
+
+	printRemediationSummary(len(findings), fixed, failed, modifiedFiles, remaining, finalBranch)
 	return nil
 }
 
@@ -347,6 +516,16 @@ func groupSnykFindings(findings []snykVulnerability) []snykRemediationGroup {
 	return groups
 }
 
+func snykGroupFindingIDs(group snykRemediationGroup) []string {
+	ids := make([]string, 0, len(group.Findings))
+	for _, finding := range group.Findings {
+		if finding.ID != "" {
+			ids = append(ids, finding.ID)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
 func snykGroupPriority(group snykRemediationGroup) int {
 	switch {
 	case strings.HasPrefix(group.PackageName, "org.springframework.boot:"):
@@ -557,10 +736,18 @@ func snykGroupPresentCount(group snykRemediationGroup, findings []snykVulnerabil
 	return count
 }
 
-func applySnykMavenFallback(root string, group snykRemediationGroup) ([]fileBackup, error) {
-	if !strings.HasSuffix(group.ManifestFile, "pom.xml") {
+func applySnykDependencyFallback(root string, group snykRemediationGroup) ([]fileBackup, error) {
+	switch {
+	case strings.HasSuffix(group.ManifestFile, "pom.xml"):
+		return applySnykMavenFallback(root, group)
+	case strings.HasSuffix(group.ManifestFile, "build.gradle") || strings.HasSuffix(group.ManifestFile, "build.gradle.kts"):
+		return applySnykGradleFallback(root, group)
+	default:
 		return nil, fmt.Errorf("no deterministic fallback for manifest %s", group.ManifestFile)
 	}
+}
+
+func applySnykMavenFallback(root string, group snykRemediationGroup) ([]fileBackup, error) {
 	groupID, artifactID, ok := strings.Cut(group.PackageName, ":")
 	if !ok || groupID == "" || artifactID == "" {
 		return nil, fmt.Errorf("package %s is not a Maven coordinate", group.PackageName)
@@ -593,6 +780,35 @@ func applySnykMavenFallback(root string, group snykRemediationGroup) ([]fileBack
 	return backups, nil
 }
 
+func applySnykGradleFallback(root string, group snykRemediationGroup) ([]fileBackup, error) {
+	groupID, artifactID, ok := strings.Cut(group.PackageName, ":")
+	if !ok || groupID == "" || artifactID == "" {
+		return nil, fmt.Errorf("package %s is not a Maven coordinate", group.PackageName)
+	}
+	version := snykGroupFixedVersion(group)
+	if version == "" {
+		return nil, fmt.Errorf("no fixed version found for %s", group.PackageName)
+	}
+
+	path, err := safeJoin(root, group.ManifestFile)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	updated, changed := updateDirectGradleDependencyVersion(string(data), groupID, artifactID, version)
+	if !changed {
+		return nil, fmt.Errorf("dependency %s was not found as a direct dependency in %s", group.PackageName, group.ManifestFile)
+	}
+
+	backups := []fileBackup{{Path: path, Data: data, Exists: true}}
+	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+		return nil, err
+	}
+	return backups, nil
+}
 func snykGroupFixedVersion(group snykRemediationGroup) string {
 	var nearest []string
 	var fixed []string
@@ -671,6 +887,19 @@ func versionParts(version string) []int {
 	return parts
 }
 
+func updateDirectGradleDependencyVersion(buildFile, groupID, artifactID, version string) (string, bool) {
+	dependency := regexp.QuoteMeta(groupID + ":" + artifactID)
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?m)((?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly)\s+['"]` + dependency + `:)[^'"]+(['"])`),
+		regexp.MustCompile(`(?m)((?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly)\(["']` + dependency + `:)[^'"]+(["']\))`),
+	}
+	for _, pattern := range patterns {
+		if pattern.MatchString(buildFile) {
+			return pattern.ReplaceAllString(buildFile, `${1}`+version+`${2}`), true
+		}
+	}
+	return buildFile, false
+}
 func updateDirectMavenDependencyVersion(pom, groupID, artifactID, version string) (string, bool) {
 	dependencyRe := regexp.MustCompile(`(?s)<dependency>.*?</dependency>`)
 	locs := dependencyRe.FindAllStringIndex(pom, -1)

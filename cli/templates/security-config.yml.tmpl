@@ -32,6 +32,23 @@ fail_on:
   trivy_low: -1         # Disabled by default
   checkov: -1           # Disabled by default (set to 0 to block on any IaC violation)
 
+# Optional vulnerability SLA policy gates (opt-in)
+# These settings are reserved for scanners/providers that can report when a finding was first seen.
+# policy:
+#   profile: "default"
+#   sla:
+#     enabled: false
+#     warn:
+#       critical: 3
+#       high: 14
+#       medium: 60
+#       low: 90
+#     fail:
+#       critical: 7
+#       high: 30
+#       medium: 90
+#       low: 180
+
 # Notification settings (PR comment enabled by default)
 notifications:
   pr_comment: true
@@ -40,10 +57,13 @@ notifications:
 
 # AI fix suggestions (opt-in)
 # Providers: ollama (local, default), openai, anthropic
+# endpoint can point to a local provider or an approved enterprise AI gateway.
 # For openai/anthropic set api_key here or via OPENAI_API_KEY / ANTHROPIC_API_KEY env vars
 # ai:
 #   enabled: false
 #   provider: "ollama"        # ollama | openai | anthropic
 #   model: "llama3"           # ollama model, or gpt-4o-mini, claude-haiku-4-5-20251001
-#   endpoint: "http://localhost:11434"  # ollama endpoint (optional)
+#   endpoint: "http://localhost:11434"  # optional provider endpoint / approved gateway
 #   api_key: ""               # leave empty to use env var
+#   require_approved_provider: false
+#   allowed_providers: ["ollama"]

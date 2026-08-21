@@ -8,20 +8,20 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/spf13/cobra"
 	"github.com/edgarpsda/devsecops-kit/cli/ai"
 	"github.com/edgarpsda/devsecops-kit/cli/config"
 	"github.com/edgarpsda/devsecops-kit/cli/detectors"
 	"github.com/edgarpsda/devsecops-kit/cli/reporters"
 	"github.com/edgarpsda/devsecops-kit/cli/scanners"
+	"github.com/spf13/cobra"
 )
 
 var (
-	scanTool             string
-	scanFailOnThreshold  bool
-	scanOutputFormat     string
-	scanConfigPath       string
-	scanOpenReport       bool
+	scanTool            string
+	scanFailOnThreshold bool
+	scanOutputFormat    string
+	scanConfigPath      string
+	scanOpenReport      bool
 )
 
 var scanCmd = &cobra.Command{
@@ -67,21 +67,21 @@ func runScan() error {
 
 	// Build scan options from config
 	options := scanners.ScanOptions{
-		EnableSemgrep:     secConfig.Tools.Semgrep,
-		EnableGitleaks:    secConfig.Tools.Gitleaks,
-		EnableTrivy:       secConfig.Tools.Trivy,
-		EnableTrivyImage:  secConfig.Tools.Trivy && projectInfo.HasDocker,
-		EnableLicenses:    secConfig.Licenses.Enabled,
-		EnableCheckov:     secConfig.Tools.Checkov,
-		DockerImages:      projectInfo.DockerImages,
-		ExcludePaths:      secConfig.ExcludePaths,
-		FailOnThresholds:  secConfig.FailOn,
+		EnableSemgrep:    secConfig.Tools.Semgrep,
+		EnableGitleaks:   secConfig.Tools.Gitleaks,
+		EnableTrivy:      secConfig.Tools.Trivy,
+		EnableTrivyImage: secConfig.Tools.Trivy && projectInfo.HasDocker,
+		EnableLicenses:   secConfig.Licenses.Enabled,
+		EnableCheckov:    secConfig.Tools.Checkov,
+		DockerImages:     projectInfo.DockerImages,
+		ExcludePaths:     secConfig.ExcludePaths,
+		FailOnThresholds: secConfig.FailOn,
 		LicenseConfig: scanners.LicenseConfig{
 			Enabled: secConfig.Licenses.Enabled,
 			Deny:    secConfig.Licenses.Deny,
 			Allow:   secConfig.Licenses.Allow,
 		},
-		Verbose:           false,
+		Verbose: false,
 	}
 
 	// If specific tool requested, disable others
@@ -102,6 +102,9 @@ func runScan() error {
 
 	// Enrich findings with AI suggestions if enabled
 	if secConfig.AI.Enabled {
+		if err := config.ValidateAIConfig(secConfig.AI); err != nil {
+			return err
+		}
 		apiKey := secConfig.AI.APIKey
 		if apiKey == "" {
 			switch secConfig.AI.Provider {

@@ -106,6 +106,70 @@ Requirements:
 - project tests passing before remediation starts
 - AI enabled in `security-config.yml` for cases that need AI-generated patches
 
+Example result from a controlled vulnerable Spring Boot project:
+
+```text
+Auto Remediation Summary
+
+Scanned:
+22 findings
+
+Fixed:
+21
+
+Failed:
+1
+
+Modified files:
+pom.xml
+
+Remaining findings:
+1
+
+Branch:
+security/remediation-20260817-161954
+
+Ready for review.
+```
+
+This example used Snyk Open Source findings against a Maven project. DevSecOps Kit grouped related findings by dependency, applied safe dependency updates, ran `mvn test`, and re-ran Snyk after each accepted change.
+
+### Enterprise Readiness Notes
+
+Security Auto Remediation is designed to keep developers in control while reducing repetitive remediation work. The current MVP intentionally leaves review, commit, push, and pull request creation as manual steps.
+
+For regulated environments, consider these controls before enabling AI-assisted remediation broadly:
+
+- Use an approved AI provider or internal AI gateway.
+- Treat prompts and responses as audit-relevant remediation artifacts.
+- Avoid sending source code to external providers unless approved by policy.
+- Prefer local providers such as Ollama when code must remain on the workstation.
+- Keep remediation branches reviewable and traceable.
+- Align fail thresholds and remediation SLAs with your organization security standards.
+
+Current threshold behavior is configuration-driven through `security-config.yml`. Teams can tune `fail_on` values today, and the internal policy evaluator now supports optional SLA-aware PASS/WARN/FAIL decisions when a scanner or advisory provider supplies `first_seen` metadata.
+
+### Remediation Audit Reports
+
+Each Snyk remediation run writes a local JSON audit report under the user cache directory:
+
+```text
+<user-cache>/devsecops-kit/remediation-runs/<project>/<run-id>.json
+```
+
+On Windows this is typically under `AppData\\Local`. Keeping reports outside the project avoids making the working tree dirty.
+
+The report includes:
+
+- run ID, timestamps, provider, scanner, branch, and project metadata
+- initial scan count and final remediation summary
+- remediation events per dependency group
+- modified files, validation status, re-scan status, and rollback reasons
+- AI provider/model metadata when AI is used
+- SHA-256 hashes and byte counts for prompts/responses instead of raw prompt or response content
+
+This gives teams an audit trail without storing source-containing prompts by default. Teams can also route AI calls through an approved endpoint or gateway by setting `ai.endpoint`, and can require provider allowlisting with `ai.require_approved_provider`.
+
 ### Git Hooks
 
 Block commits or warn on push when security issues exceed thresholds:
@@ -148,6 +212,21 @@ fail_on:
   trivy_low: -1
   checkov: -1           # disabled by default
 
+# policy:
+#   profile: "default"
+#   sla:
+#     enabled: false
+#     warn:
+#       critical: 3
+#       high: 14
+#       medium: 60
+#       low: 90
+#     fail:
+#       critical: 7
+#       high: 30
+#       medium: 90
+#       low: 180
+
 licenses:
   enabled: false
   deny: ["GPL-3.0", "AGPL-3.0"]
@@ -162,6 +241,9 @@ notifications:
 #   enabled: false
 #   provider: "ollama"
 #   model: "llama3.1"
+#   endpoint: "http://localhost:11434"  # optional provider endpoint / approved gateway
+#   require_approved_provider: false
+#   allowed_providers: ["ollama"]
 ```
 
 ### Other Commands
@@ -256,6 +338,11 @@ MIT — free for personal and commercial use.
 
 ## Privacy
 
-- No telemetry, no tracking, no code uploads
+- No telemetry, no tracking, no code uploads by default
 - All scans run locally or in your own CI environment
-- AI suggestions are opt-in; Ollama runs fully locally by default
+- AI suggestions and AI-assisted remediation are opt-in
+- Ollama runs fully locally by default
+- OpenAI and Anthropic providers may receive finding details and relevant code context when configured
+- Use an approved internal provider or local model when prompts and responses must be gated or audited
+
+

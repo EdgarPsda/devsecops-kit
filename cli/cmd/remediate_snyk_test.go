@@ -213,3 +213,31 @@ func TestUpdateDirectMavenDependencyVersion(t *testing.T) {
 		t.Fatalf("expected updated version in pom, got %s", updated)
 	}
 }
+
+func TestUpdateDirectGradleDependencyVersionSingleQuotes(t *testing.T) {
+	buildFile := `dependencies {
+    implementation 'io.netty:netty-handler:4.1.85.Final'
+}`
+
+	updated, changed := updateDirectGradleDependencyVersion(buildFile, "io.netty", "netty-handler", "4.1.137.Final")
+	if !changed {
+		t.Fatal("expected Gradle dependency version to change")
+	}
+	if !strings.Contains(updated, "io.netty:netty-handler:4.1.137.Final") {
+		t.Fatalf("expected updated version in build.gradle, got %s", updated)
+	}
+}
+
+func TestUpdateDirectGradleDependencyVersionFunctionCall(t *testing.T) {
+	buildFile := `dependencies {
+    implementation("io.grpc:grpc-netty-shaded:1.35.0")
+}`
+
+	updated, changed := updateDirectGradleDependencyVersion(buildFile, "io.grpc", "grpc-netty-shaded", "1.75.0")
+	if !changed {
+		t.Fatal("expected Gradle dependency version to change")
+	}
+	if !strings.Contains(updated, "io.grpc:grpc-netty-shaded:1.75.0") {
+		t.Fatalf("expected updated version in build.gradle, got %s", updated)
+	}
+}

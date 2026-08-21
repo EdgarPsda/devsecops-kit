@@ -131,3 +131,32 @@ func containsStr(s, substr string) bool {
 	}
 	return false
 }
+
+func TestOpenAIUsesConfiguredEndpoint(t *testing.T) {
+	seenPath := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenPath = r.URL.Path
+		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
+			t.Fatalf("unexpected authorization header %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]string{"role": "assistant", "content": "patched"}},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	c := NewClient(Config{Provider: "openai", Endpoint: srv.URL, APIKey: "test-key"})
+	got, err := c.Complete("fix this")
+	if err != nil {
+		t.Fatalf("expected openai call to succeed: %v", err)
+	}
+	if got != "patched" {
+		t.Fatalf("expected patched response, got %q", got)
+	}
+	if seenPath != "/chat/completions" {
+		t.Fatalf("expected gateway chat completions path, got %q", seenPath)
+	}
+}

@@ -111,6 +111,9 @@ func runRemediationMVP(dir string, secConfig *config.SecurityConfig) error {
 	if !secConfig.AI.Enabled {
 		return fmt.Errorf("AI remediation requires ai.enabled=true in %s", remediateConfigPath)
 	}
+	if err := config.ValidateAIConfig(secConfig.AI); err != nil {
+		return err
+	}
 
 	aiClient := ai.NewClient(ai.Config{
 		Enabled:  true,
